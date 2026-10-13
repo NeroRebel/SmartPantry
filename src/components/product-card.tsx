@@ -14,8 +14,8 @@ export const statusColors: Record<ProductStatus, string> = {
 export const statusLabels: Record<ProductStatus, string> = { fresh: 'Fresh', expiringSoon: 'Expiring Soon', expired: 'Expired' };
 
 const categoryIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Dairy: 'water-outline', Meat: 'restaurant-outline', Vegetables: 'nutrition-outline',
-  Fruit: 'nutrition-outline', Bakery: 'pizza-outline', Drinks: 'cafe-outline',
+  Dairy: 'water-outline', Meat: 'restaurant-outline', 'Meat & Fish': 'restaurant-outline', Vegetables: 'nutrition-outline',
+  Fruit: 'nutrition-outline', Fruits: 'nutrition-outline', Bakery: 'pizza-outline', Drinks: 'cafe-outline',
   Frozen: 'snow-outline', Pantry: 'file-tray-outline',
 };
 

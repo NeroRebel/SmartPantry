@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,7 +8,7 @@ import type { Product, ProductInput } from '@/types/product';
 import { isValidISODate } from '@/utils/product-status';
 
 const choices = {
-  category: ['Dairy', 'Meat', 'Vegetables', 'Fruit', 'Bakery', 'Drinks', 'Frozen', 'Pantry', 'Other'],
+  category: ['Dairy', 'Meat & Fish', 'Meat', 'Vegetables', 'Fruits', 'Fruit', 'Bakery', 'Drinks', 'Frozen', 'Pantry', 'Other'],
   unit: ['', 'pcs', 'g', 'kg', 'ml', 'L', 'pack'],
   storageLocation: ['', 'Refrigerator', 'Freezer', 'Pantry', 'Other'],
 };
@@ -18,19 +18,21 @@ type Props = {
   title: string;
   submitLabel: string;
   initialProduct?: Product;
+  initialValues?: Partial<Record<'name' | 'category' | 'unit' | 'storageLocation', string>>;
+  headerContent?: ReactNode;
   onBack: () => void;
   onSubmit: (input: ProductInput) => Promise<void>;
 };
 
-export function ProductForm({ title, submitLabel, initialProduct, onBack, onSubmit }: Props) {
+export function ProductForm({ title, submitLabel, initialProduct, initialValues, headerContent, onBack, onSubmit }: Props) {
   const [fields, setFields] = useState({
-    name: initialProduct?.name ?? '',
+    name: initialProduct?.name ?? initialValues?.name ?? '',
     brand: initialProduct?.brand ?? '',
-    category: initialProduct?.category ?? '',
+    category: initialProduct?.category ?? initialValues?.category ?? '',
     quantity: initialProduct?.quantity?.toString() ?? '',
-    unit: initialProduct?.unit ?? '',
+    unit: initialProduct?.unit ?? initialValues?.unit ?? '',
     expirationDate: initialProduct?.expirationDate ?? '',
-    storageLocation: initialProduct?.storageLocation ?? '',
+    storageLocation: initialProduct?.storageLocation ?? initialValues?.storageLocation ?? '',
     notes: initialProduct?.notes ?? '',
   });
   const [menu, setMenu] = useState<keyof typeof choices | null>(null);
@@ -125,6 +127,7 @@ export function ProductForm({ title, submitLabel, initialProduct, onBack, onSubm
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           </View>
+          {headerContent}
           {input('name', 'Product Name *', 'e.g. Milk')}
           {input('brand', 'Brand', 'Brand name')}
           {select('category')}

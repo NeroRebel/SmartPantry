@@ -1,1 +1,1 @@
-export { getRecipeById, getRecipeCategories, getRecipes } from '@/api/recipes';
+export { getRecipeById, getRecipeCategories, getRecipes, getRecipesByIngredient } from '@/api/recipes';

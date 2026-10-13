@@ -25,7 +25,7 @@ function load(filename) {
 }
 
 const { mockRecipes, mockAvailableIngredients } = load(path.join(root, 'data/mock-recipes.ts'));
-const { getRecipes, getRecipeById, getRecipeCategories, mapMealDbMealToRecipe } = load(path.join(root, 'api/recipes.ts'));
+const { getRecipes, getRecipeById, getRecipeCategories, getRecipesByIngredient, mapMealDbMealToRecipe } = load(path.join(root, 'api/recipes.ts'));
 const { filterRecipes, recipeCategories } = load(path.join(root, 'utils/recipe-filters.ts'));
 
 const fullMeal = {
@@ -104,6 +104,19 @@ test('search encodes query, filters category locally and treats null meals as em
     assert.deepEqual(await getRecipes('nothing'), []);
   });
   assert.ok(paths[0].includes('search.php?s=tomato%20pasta'));
+});
+
+test('ingredient discovery uses a lightweight filter request', async () => {
+  const paths = [];
+  await withFetch((url) => {
+    paths.push(url.pathname + url.search);
+    return { meals: [{ idMeal: '201', strMeal: 'Chicken Dinner', strMealThumb: null }] };
+  }, async () => {
+    const candidates = await getRecipesByIngredient('chicken breast');
+    assert.equal(candidates[0].id, '201');
+    assert.equal(candidates[0].ingredientCount, null);
+  });
+  assert.deepEqual(paths, ['/api/json/v1/1/filter.php?i=chicken_breast']);
 });
 
 test('detail loads full recipe by ID and category list uses the API', async () => {

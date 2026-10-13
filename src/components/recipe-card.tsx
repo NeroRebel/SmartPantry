@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pantryColors as colors } from '@/constants/pantry-theme';
-import type { RecipeListItem, RecipeMatch } from '@/types/recipe';
+import type { Recipe, RecipeListItem, RecipeMatch } from '@/types/recipe';
 
 const visualColors: Record<string, readonly [string, string]> = {
   Breakfast: ['#5A291F', '#9E5C2F'], Lunch: ['#223C31', '#4B7150'],
@@ -27,12 +27,14 @@ export function RecipeVisual({ recipe, large = false }: { recipe: Pick<RecipeLis
   );
 }
 
-export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem; onPress: () => void; match?: RecipeMatch }) {
-  const hasMeta = recipe.prepTime != null || !!recipe.difficulty || recipe.ingredientCount != null;
+export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem | Recipe; onPress: () => void; match?: RecipeMatch }) {
+  const ingredientCount = 'ingredientCount' in recipe ? recipe.ingredientCount : recipe.ingredients.length;
+  const hasMeta = recipe.prepTime != null || !!recipe.difficulty || ingredientCount != null;
+  const complete = !!match && match.totalCount > 0 && match.missingIngredients.length === 0;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${recipe.name}, ${recipe.area ?? recipe.category}${recipe.prepTime != null ? `, ${recipe.prepTime} minutes` : ''}${recipe.difficulty ? `, ${recipe.difficulty}` : ''}`}
+      accessibilityLabel={`${recipe.name}, ${recipe.area ?? recipe.category}${recipe.prepTime != null ? `, ${recipe.prepTime} minutes` : ''}${recipe.difficulty ? `, ${recipe.difficulty}` : ''}${match ? `, ${match.availableCount} of ${match.totalCount} ingredients available` : ''}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -48,9 +50,15 @@ export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem;
         {hasMeta && <View style={styles.meta}>
           {recipe.prepTime != null && <Meta icon="time-outline" text={`${recipe.prepTime} min`} />}
           {recipe.difficulty && <Meta icon="flame-outline" text={recipe.difficulty} />}
-          {recipe.ingredientCount != null && <Meta icon="list-outline" text={`${recipe.ingredientCount} ingredients`} />}
+          {ingredientCount != null && <Meta icon="list-outline" text={`${ingredientCount} ingredients`} />}
         </View>}
-        {match && recipe.ingredientCount != null && <Text style={styles.match}>{match.availableIngredientCount}/{recipe.ingredientCount} ingredients available · Missing {match.missingIngredientCount}</Text>}
+        {match && <View style={styles.matchRow}>
+          <Ionicons name={complete ? 'checkmark-circle' : 'sparkles-outline'} size={20} color={complete ? colors.fresh : colors.soon} />
+          <View style={styles.matchCopy}>
+            <Text style={[styles.matchCount, { color: complete ? colors.fresh : colors.soon }]}>{match.availableCount}/{match.totalCount} ingredients available</Text>
+            <Text style={styles.matchDetail}>{complete ? 'You can cook this' : `Missing ${match.missingIngredients.length}`}</Text>
+          </View>
+        </View>}
       </View>
     </Pressable>
   );
@@ -78,5 +86,8 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 8 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { color: colors.secondary, fontSize: 12, lineHeight: 17 },
-  match: { color: colors.fresh, fontSize: 12, lineHeight: 17 },
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 9, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
+  matchCopy: { gap: 3 },
+  matchCount: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  matchDetail: { color: colors.secondary, fontSize: 11, lineHeight: 16 },
 });

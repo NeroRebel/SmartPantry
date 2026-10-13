@@ -7,16 +7,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RecipeVisual } from '@/components/recipe-card';
 import { pantryColors as colors } from '@/constants/pantry-theme';
 import { getRecipeById } from '@/data/recipes';
+import { getProducts } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
-import type { Recipe } from '@/types/recipe';
+import type { Recipe, RecipeMatch } from '@/types/recipe';
+import { calculateRecipeMatch } from '@/utils/ingredient-matching';
 
 function goBack() {
   if (router.canGoBack()) router.back();
   else router.replace('/(tabs)/recipes');
 }
 
-function RecipeDetails({ recipe }: { recipe: Recipe }) {
+function RecipeDetails({ recipe, fromPantry, match, pantryLoading, pantryError, retryPantry }: {
+  recipe: Recipe;
+  fromPantry: boolean;
+  match: RecipeMatch | null;
+  pantryLoading: boolean;
+  pantryError: string | null;
+  retryPantry: () => void;
+}) {
   const steps = recipe.instructions.split('\n').map((step) => step.trim()).filter(Boolean);
+  const available = new Set(match?.availableIngredients ?? []);
+  const complete = !!match && match.totalCount > 0 && match.missingIngredients.length === 0;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -45,11 +56,21 @@ function RecipeDetails({ recipe }: { recipe: Recipe }) {
 
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>Ingredients</Text>
+          {fromPantry && pantryLoading && !match && <ActivityIndicator color={colors.accent} accessibilityLabel="Checking pantry ingredients" />}
+          {fromPantry && pantryError && <View style={styles.matchError}>
+            <Text accessibilityRole="alert" style={styles.unavailableText}>Couldn&apos;t check your pantry.</Text>
+            <Pressable accessibilityRole="button" onPress={retryPantry}><Text style={styles.retryText}>Try Again</Text></Pressable>
+          </View>}
+          {match && <View style={styles.matchSummary}>
+            <Ionicons name={complete ? 'checkmark-circle' : 'basket-outline'} size={22} color={complete ? colors.fresh : colors.soon} />
+            <Text style={[styles.matchSummaryText, { color: complete ? colors.fresh : colors.soon }]}>{complete ? 'You have everything you need' : `You have ${match.availableCount} of ${match.totalCount} ingredients`}</Text>
+          </View>}
           {recipe.ingredients.length === 0 && <Text style={styles.unavailableText}>Ingredients aren&apos;t available for this recipe.</Text>}
           {recipe.ingredients.map((ingredient, index) => {
+            const isAvailable = available.has(ingredient);
             return (
               <View key={`${ingredient.name}-${index}`} style={styles.ingredientRow}>
-                <Ionicons name="ellipse-outline" size={21} color={colors.secondary} />
+                <Ionicons name={isAvailable ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={match ? (isAvailable ? colors.fresh : colors.soon) : colors.secondary} />
                 <Text style={styles.ingredientName}>{ingredient.name}</Text>
                 <Text style={styles.measure}>{ingredient.measure ?? 'To taste'}</Text>
               </View>
@@ -83,10 +104,14 @@ function Meta({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; la
 }
 
 export default function RecipeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string | string[] }>();
+  const { id, source } = useLocalSearchParams<{ id: string | string[]; source?: string | string[] }>();
   const recipeId = typeof id === 'string' ? id : '';
+  const fromPantry = source === 'pantry';
   const load = useCallback(() => getRecipeById(recipeId), [recipeId]);
   const { data: recipe, loading, error, reload } = useFocusedData(load);
+  const loadPantry = useCallback(() => fromPantry ? getProducts() : Promise.resolve([]), [fromPantry]);
+  const { data: products, loading: pantryLoading, error: pantryError, reload: retryPantry } = useFocusedData(loadPantry);
+  const match = fromPantry && recipe && products && !pantryError ? calculateRecipeMatch(recipe, products) : null;
 
   if (loading && !recipe) {
     return <SafeAreaView style={styles.screen}><ActivityIndicator style={styles.loader} color={colors.accent} accessibilityLabel="Loading recipe" /></SafeAreaView>;
@@ -104,7 +129,7 @@ export default function RecipeDetailScreen() {
       </SafeAreaView>
     );
   }
-  return <RecipeDetails recipe={recipe} />;
+  return <RecipeDetails recipe={recipe} fromPantry={fromPantry} match={match} pantryLoading={pantryLoading} pantryError={pantryError} retryPantry={retryPantry} />;
 }
 
 const styles = StyleSheet.create({
@@ -125,6 +150,10 @@ const styles = StyleSheet.create({
   section: { gap: 13 },
   sectionTitle: { color: colors.text, fontSize: 19, fontWeight: '700' },
   unavailableText: { color: colors.secondary, fontSize: 14, lineHeight: 22 },
+  matchSummary: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  matchSummaryText: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  matchError: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  retryText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   ingredientRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 10 },
   ingredientName: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 21 },
   measure: { color: colors.secondary, fontSize: 13, lineHeight: 20, textAlign: 'right' },

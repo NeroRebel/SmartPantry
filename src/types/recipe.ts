@@ -27,6 +27,10 @@ export type RecipeListItem = Pick<Recipe, 'id' | 'name' | 'imageUrl' | 'emoji' |
 };
 
 export interface RecipeMatch {
-  availableIngredientCount: number;
-  missingIngredientCount: number;
+  recipe: Recipe;
+  availableIngredients: RecipeIngredient[];
+  missingIngredients: RecipeIngredient[];
+  availableCount: number;
+  totalCount: number;
+  matchPercentage: number;
 }

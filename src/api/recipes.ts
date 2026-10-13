@@ -126,6 +126,11 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
   return meals[0] ? mapMealDbMealToRecipe(meals[0]) : null;
 }
 
+export async function getRecipesByIngredient(ingredient: string): Promise<RecipeListItem[]> {
+  const meals = parseMeals(await requestJson('filter.php', 'i', ingredient.trim().replace(/\s+/g, '_')));
+  return meals.map((meal) => mapMealDbMealToListItem(meal, 'Other'));
+}
+
 let categoryRequest: Promise<RecipeFilter[]> | null = null;
 
 export function getRecipeCategories(): Promise<RecipeFilter[]> {

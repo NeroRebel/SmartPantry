@@ -23,6 +23,17 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
             created_at TEXT NOT NULL
           );
           CREATE INDEX IF NOT EXISTS products_expiration_date ON products(expiration_date);
+          CREATE TABLE IF NOT EXISTS shopping_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            quantity REAL CHECK(quantity IS NULL OR quantity >= 0),
+            unit TEXT,
+            category TEXT,
+            completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0, 1)),
+            source TEXT NOT NULL DEFAULT 'manual' CHECK(source IN ('manual', 'recipe')),
+            created_at TEXT NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS shopping_list_completed_created ON shopping_list(completed, created_at DESC);
         `);
         return db;
       } catch (error) {

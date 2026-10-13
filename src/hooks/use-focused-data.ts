@@ -48,5 +48,5 @@ export function useFocusedData<T>(load: () => Promise<T>) {
     };
   }, [load]));
 
-  return { data, loading, error, reload: () => refreshRef.current() };
+  return { data, setData, loading, error, reload: () => refreshRef.current() };
 }

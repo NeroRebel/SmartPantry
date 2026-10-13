@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getProductStats } from '@/db/products';
@@ -174,7 +174,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Shopping List. Never forget essentials"
-            onPress={() => Alert.alert('Shopping List', 'Your shopping list is coming soon.')}
+            onPress={() => router.push('/shopping-list')}
             style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}
           >
             <Ionicons name="basket-outline" size={26} color={colors.yellow} />
