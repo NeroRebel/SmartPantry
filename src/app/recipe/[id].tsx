@@ -1,15 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecipeVisual } from '@/components/recipe-card';
 import { pantryColors as colors } from '@/constants/pantry-theme';
+import { addMissingRecipeIngredients } from '@/data/recipe-shopping';
 import { getRecipeById } from '@/data/recipes';
 import { getProducts } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
-import type { Recipe, RecipeMatch } from '@/types/recipe';
+import type { Recipe, RecipeIngredient, RecipeMatch } from '@/types/recipe';
 import { calculateRecipeMatch } from '@/utils/ingredient-matching';
 
 function goBack() {
@@ -17,16 +18,26 @@ function goBack() {
   else router.replace('/(tabs)/recipes');
 }
 
-function RecipeDetails({ recipe, fromPantry, match, pantryLoading, pantryError, retryPantry }: {
+function IngredientRow({ ingredient, available }: { ingredient: RecipeIngredient; available: boolean | null }) {
+  return (
+    <View style={styles.ingredientRow}>
+      <Ionicons name={available ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={available === null ? colors.secondary : available ? colors.fresh : colors.soon} />
+      <Text style={styles.ingredientName}>{ingredient.name}</Text>
+      <Text style={styles.measure}>{ingredient.measure ?? 'To taste'}</Text>
+    </View>
+  );
+}
+
+function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry, adding, onAddMissing }: {
   recipe: Recipe;
-  fromPantry: boolean;
   match: RecipeMatch | null;
   pantryLoading: boolean;
   pantryError: string | null;
   retryPantry: () => void;
+  adding: boolean;
+  onAddMissing: () => void;
 }) {
   const steps = recipe.instructions.split('\n').map((step) => step.trim()).filter(Boolean);
-  const available = new Set(match?.availableIngredients ?? []);
   const complete = !!match && match.totalCount > 0 && match.missingIngredients.length === 0;
 
   return (
@@ -56,26 +67,31 @@ function RecipeDetails({ recipe, fromPantry, match, pantryLoading, pantryError, 
 
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>Ingredients</Text>
-          {fromPantry && pantryLoading && !match && <ActivityIndicator color={colors.accent} accessibilityLabel="Checking pantry ingredients" />}
-          {fromPantry && pantryError && <View style={styles.matchError}>
+          {pantryLoading && !match && <ActivityIndicator color={colors.accent} accessibilityLabel="Checking pantry ingredients" />}
+          {pantryError && <View style={styles.matchError}>
             <Text accessibilityRole="alert" style={styles.unavailableText}>Couldn&apos;t check your pantry.</Text>
             <Pressable accessibilityRole="button" onPress={retryPantry}><Text style={styles.retryText}>Try Again</Text></Pressable>
           </View>}
-          {match && <View style={styles.matchSummary}>
+          {match && match.totalCount > 0 && <View style={styles.matchSummary}>
             <Ionicons name={complete ? 'checkmark-circle' : 'basket-outline'} size={22} color={complete ? colors.fresh : colors.soon} />
             <Text style={[styles.matchSummaryText, { color: complete ? colors.fresh : colors.soon }]}>{complete ? 'You have everything you need' : `You have ${match.availableCount} of ${match.totalCount} ingredients`}</Text>
           </View>}
           {recipe.ingredients.length === 0 && <Text style={styles.unavailableText}>Ingredients aren&apos;t available for this recipe.</Text>}
-          {recipe.ingredients.map((ingredient, index) => {
-            const isAvailable = available.has(ingredient);
-            return (
-              <View key={`${ingredient.name}-${index}`} style={styles.ingredientRow}>
-                <Ionicons name={isAvailable ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={match ? (isAvailable ? colors.fresh : colors.soon) : colors.secondary} />
-                <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                <Text style={styles.measure}>{ingredient.measure ?? 'To taste'}</Text>
-              </View>
-            );
-          })}
+          {match ? <>
+            {match.totalCount > 0 && <View style={styles.ingredientGroup}>
+              <Text style={[styles.groupTitle, { color: colors.fresh }]}>Available · {match.availableCount}</Text>
+              {match.availableCount === 0 ? <Text style={styles.unavailableText}>None in your pantry yet.</Text> :
+                match.availableIngredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available />)}
+            </View>}
+            {match.missingIngredients.length > 0 && <View style={styles.ingredientGroup}>
+              <Text style={[styles.groupTitle, { color: colors.soon }]}>Missing · {match.missingIngredients.length}</Text>
+              {match.missingIngredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available={false} />)}
+              <Pressable accessibilityRole="button" disabled={adding} onPress={onAddMissing} style={({ pressed }) => [styles.addMissingButton, (pressed || adding) && styles.pressed]}>
+                {adding ? <ActivityIndicator color={colors.background} /> : <Ionicons name="basket-outline" size={20} color={colors.background} />}
+                <Text style={styles.addMissingText}>{adding ? 'Adding...' : `Add missing ${match.missingIngredients.length === 1 ? 'ingredient' : 'ingredients'} to Shopping List`}</Text>
+              </Pressable>
+            </View>}
+          </> : recipe.ingredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available={null} />)}
         </View>
 
         <View style={styles.section}>
@@ -104,14 +120,36 @@ function Meta({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; la
 }
 
 export default function RecipeDetailScreen() {
-  const { id, source } = useLocalSearchParams<{ id: string | string[]; source?: string | string[] }>();
+  const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const recipeId = typeof id === 'string' ? id : '';
-  const fromPantry = source === 'pantry';
   const load = useCallback(() => getRecipeById(recipeId), [recipeId]);
   const { data: recipe, loading, error, reload } = useFocusedData(load);
-  const loadPantry = useCallback(() => fromPantry ? getProducts() : Promise.resolve([]), [fromPantry]);
-  const { data: products, loading: pantryLoading, error: pantryError, reload: retryPantry } = useFocusedData(loadPantry);
-  const match = fromPantry && recipe && products && !pantryError ? calculateRecipeMatch(recipe, products) : null;
+  const { data: products, loading: pantryLoading, error: pantryError, reload: retryPantry } = useFocusedData(getProducts);
+  const match = recipe && products && !pantryLoading && !pantryError ? calculateRecipeMatch(recipe, products) : null;
+  const [adding, setAdding] = useState(false);
+  const submitting = useRef(false);
+
+  async function addMissing() {
+    if (!recipe || submitting.current) return;
+    submitting.current = true;
+    setAdding(true);
+    try {
+      const result = await addMissingRecipeIngredients(recipe);
+      const count = result.added;
+      const message = count > 0
+        ? `${count} ${count === 1 ? 'ingredient' : 'ingredients'} added to Shopping List.${result.skipped ? ` ${result.skipped} already on your list.` : ''}`
+        : result.skipped > 0 ? 'These ingredients are already on your Shopping List.' : 'You have everything you need.';
+      Alert.alert('Shopping List', message, [
+        { text: 'Continue' },
+        { text: 'View Shopping List', onPress: () => router.push('/shopping-list') },
+      ]);
+    } catch {
+      Alert.alert('Unable to add ingredients', 'Please try again.');
+    } finally {
+      submitting.current = false;
+      setAdding(false);
+    }
+  }
 
   if (loading && !recipe) {
     return <SafeAreaView style={styles.screen}><ActivityIndicator style={styles.loader} color={colors.accent} accessibilityLabel="Loading recipe" /></SafeAreaView>;
@@ -129,7 +167,7 @@ export default function RecipeDetailScreen() {
       </SafeAreaView>
     );
   }
-  return <RecipeDetails recipe={recipe} fromPantry={fromPantry} match={match} pantryLoading={pantryLoading} pantryError={pantryError} retryPantry={retryPantry} />;
+  return <RecipeDetails recipe={recipe} match={match} pantryLoading={pantryLoading} pantryError={pantryError} retryPantry={retryPantry} adding={adding} onAddMissing={() => void addMissing()} />;
 }
 
 const styles = StyleSheet.create({
@@ -154,9 +192,13 @@ const styles = StyleSheet.create({
   matchSummaryText: { flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '600' },
   matchError: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   retryText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  ingredientGroup: { gap: 4 },
+  groupTitle: { fontSize: 13, fontWeight: '700', marginTop: 8, marginBottom: 2 },
   ingredientRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 10 },
   ingredientName: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 21 },
   measure: { color: colors.secondary, fontSize: 13, lineHeight: 20, textAlign: 'right' },
+  addMissingButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, padding: 12, marginTop: 14, borderRadius: 14, backgroundColor: colors.text },
+  addMissingText: { flexShrink: 1, color: colors.background, fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center' },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 4 },
   stepNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FF6B3D20', alignItems: 'center', justifyContent: 'center' },
   stepNumberText: { color: colors.accent, fontSize: 13, fontWeight: '700' },

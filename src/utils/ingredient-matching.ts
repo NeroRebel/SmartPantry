@@ -25,13 +25,16 @@ export function getIngredientDiscoveryTerm(productName: string): string {
   return /^chicken (breast|thigh|wing|leg|drumstick)( |$)/.test(name) ? 'chicken' : name;
 }
 
-export function doesPantryProductMatchIngredient(product: PantryProduct, ingredient: RecipeIngredient, today = new Date()): boolean {
-  if (!isUsablePantryProduct(product, today)) return false;
-  const pantryName = normalizeIngredientName(product.name);
-  const ingredientName = normalizeIngredientName(ingredient.name);
+export function doesPantryNameMatchIngredientName(productName: string, recipeIngredientName: string): boolean {
+  const pantryName = normalizeIngredientName(productName);
+  const ingredientName = normalizeIngredientName(recipeIngredientName);
   if (!pantryName || !ingredientName) return false;
   if (pantryName === ingredientName) return true;
   return ingredientName === 'chicken' && /^chicken (breast|thigh|wing|leg|drumstick)$/.test(pantryName);
+}
+
+export function doesPantryProductMatchIngredient(product: PantryProduct, ingredient: RecipeIngredient, today = new Date()): boolean {
+  return isUsablePantryProduct(product, today) && doesPantryNameMatchIngredientName(product.name, ingredient.name);
 }
 
 export function calculateRecipeMatch(recipe: Recipe, products: readonly PantryProduct[], today = new Date()): RecipeMatch {

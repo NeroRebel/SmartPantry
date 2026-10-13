@@ -11,7 +11,7 @@ export function ShoppingItemRow({ item, disabled, onToggle, onEdit, onDelete }: 
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const quantity = item.quantity === null ? null : `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`;
+  const quantity = item.quantity === null ? item.unit : `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`;
   const detail = [quantity, item.category].filter(Boolean).join(' · ');
   return (
     <View style={[styles.row, item.completed && styles.completedRow]}>
