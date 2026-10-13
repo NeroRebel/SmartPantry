@@ -6,14 +6,16 @@ import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Style
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { useThemedStyles } from '@/theme/theme-context';
+import { useAppTheme, useThemedStyles } from '@/theme/theme-context';
+import { useAuth } from '@/auth/auth-context';
+import { UserAvatar } from '@/components/user-avatar';
+import { getUserProfile } from '@/utils/auth';
 import type { AppColors } from '@/theme/theme';
 import { getNotificationSettings } from '@/db/notification-settings';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import { getNotificationPermissionStatus, setDefaultReminderDays, setNotificationsEnabled } from '@/services/notifications';
 import type { NotificationSettings } from '@/types/notification-settings';
 import { languages } from '@/i18n';
-import { useAppTheme } from '@/theme/theme-context';
 
 const timings: { days: NotificationSettings['defaultReminderDays']; key: string }[] = [
   { days: 0, key: 'timing.sameDay' }, { days: 1, key: 'timing.day1' },
@@ -42,6 +44,8 @@ export default function MoreScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { settings: appearance } = useAppTheme();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const profile = user ? getUserProfile(user) : null;
   const load = useCallback(async () => {
     const [settings, permission] = await Promise.all([getNotificationSettings(), getNotificationPermissionStatus()]);
     return { settings, permission };
@@ -71,6 +75,9 @@ export default function MoreScreen() {
   return <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={styles.title}>{t('nav.more')}</Text>
+      {profile && <Pressable accessibilityRole="button" accessibilityLabel={t('auth.profile')} onPress={() => router.push('/profile')} style={styles.profile}>
+        <UserAvatar key={profile.avatarUrl} url={profile.avatarUrl} /><View style={styles.rowCopy}><Text style={styles.rowTitle}>{profile.name || t('auth.user')}</Text><Text style={styles.rowSubtitle}>{profile.email}</Text></View><Ionicons name="chevron-forward" size={20} color={colors.secondary} />
+      </Pressable>}
       <Section title={t('more.activity')}>
         <Row icon="bar-chart-outline" title={t('statistics.title')} subtitle={t('more.statisticsBody')} onPress={() => router.push('/statistics')} />
         <Row icon="basket-outline" title={t('shopping.title')} subtitle={t('more.shoppingBody')} onPress={() => router.push('/shopping-list')} />
@@ -109,6 +116,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 18, paddingBottom: 48, gap: 30 },
   title: { color: colors.text, fontSize: 34, fontWeight: '700' },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14 },
   section: { gap: 12 },
   sectionTitle: { color: colors.secondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   group: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, overflow: 'hidden' },

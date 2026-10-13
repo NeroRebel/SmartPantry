@@ -108,6 +108,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   },
   tabBar: {
     position: 'absolute',
+    zIndex: 2,
+    elevation: 9,
     height: Platform.select({ ios: 86, default: 72 }),
     paddingTop: 8,
     paddingBottom: Platform.select({ ios: 24, default: 12 }),

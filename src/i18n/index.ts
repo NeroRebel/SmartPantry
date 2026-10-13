@@ -7,9 +7,10 @@ import { ru } from './locales/ru';
 import { uk } from './locales/uk';
 import { hu } from './locales/hu';
 import { scannerTranslations } from './scanner';
+import { authTranslations } from './auth';
 
-export const resources = { en: { translation: { ...en, ...scannerTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru } },
-  uk: { translation: { ...uk, ...scannerTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu } } };
+export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru } },
+  uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu } } };
 
 export const i18n = createInstance();
 void i18n.use(initReactI18next).init({
