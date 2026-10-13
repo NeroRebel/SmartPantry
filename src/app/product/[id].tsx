@@ -7,9 +7,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductIcon, StatusBadge, statusColors } from '@/components/product-card';
 import { pantryColors as colors } from '@/constants/pantry-theme';
 import { ProductLoadState } from '@/components/product-load-state';
+import { markProductAsConsumed, markProductAsWasted } from '@/db/product-history';
 import { deleteProduct, getProductById } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { Product } from '@/types/product';
+import type { ProductHistoryAction } from '@/types/product-history';
 import { formatExpirationDate, formatQuantity, getExpirationLabel, getProductStatus } from '@/utils/product-status';
 
 function goBack() {
@@ -39,23 +41,51 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 
 function ProductDetails({ product }: { product: Product }) {
   const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const deletingRef = useRef(false);
+  const [busy, setBusy] = useState<'delete' | ProductHistoryAction | null>(null);
+  const busyRef = useRef(false);
   const status = getProductStatus(product.expirationDate);
-  const showPlaceholder = (action: string) => Alert.alert(action, `${action} for ${product.name} is coming soon.`);
 
   async function remove() {
-    if (deletingRef.current) return;
-    deletingRef.current = true;
-    setDeleting(true);
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy('delete');
     try {
       await deleteProduct(product.id);
       router.dismissTo('/(tabs)/inventory');
     } catch {
       Alert.alert('Unable to delete', 'Your product was not deleted. Please try again.');
     } finally {
-      deletingRef.current = false;
-      setDeleting(false);
+      busyRef.current = false;
+      setBusy(null);
+    }
+  }
+
+  async function complete(action: ProductHistoryAction) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(action);
+    try {
+      if (action === 'consumed') await markProductAsConsumed(product.id);
+      else await markProductAsWasted(product.id);
+      router.dismissTo('/(tabs)/inventory');
+    } catch {
+      Alert.alert('Unable to update product', 'Your product is still in Inventory. Please try again.');
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+    }
+  }
+
+  function confirmOutcome(action: ProductHistoryAction) {
+    const label = action === 'consumed' ? 'consumed' : 'wasted';
+    const message = `Mark ${product.name} as ${label}? It will move from Inventory to Product History.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) void complete(action);
+    } else {
+      Alert.alert(`Mark as ${action === 'consumed' ? 'Consumed' : 'Wasted'}?`, message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: () => void complete(action) },
+      ]);
     }
   }
 
@@ -116,25 +146,25 @@ function ProductDetails({ product }: { product: Product }) {
           />
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit Product" disabled={deleting} onPress={() => router.push({ pathname: '/product/[id]/edit', params: { id: product.id } })} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit Product" disabled={busy !== null} onPress={() => router.push({ pathname: '/product/[id]/edit', params: { id: product.id } })} style={({ pressed }) => [styles.editButton, (pressed || busy !== null) && styles.pressed]}>
           <Ionicons name="create-outline" size={21} color={colors.background} />
           <Text style={styles.editText}>Edit Product</Text>
         </Pressable>
 
         <View style={styles.outcomes}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Consumed" onPress={() => showPlaceholder('Mark as Consumed')} style={({ pressed }) => [styles.outcomeButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Consumed" disabled={busy !== null} onPress={() => confirmOutcome('consumed')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
             <Ionicons name="checkmark-circle-outline" size={23} color={colors.fresh} />
-            <Text style={styles.outcomeText}>Mark as Consumed</Text>
+            <Text style={styles.outcomeText}>{busy === 'consumed' ? 'Saving...' : 'Mark as Consumed'}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Wasted" onPress={() => showPlaceholder('Mark as Wasted')} style={({ pressed }) => [styles.outcomeButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Wasted" disabled={busy !== null} onPress={() => confirmOutcome('wasted')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
             <Ionicons name="trash-outline" size={23} color={colors.soon} />
-            <Text style={styles.outcomeText}>Mark as Wasted</Text>
+            <Text style={styles.outcomeText}>{busy === 'wasted' ? 'Saving...' : 'Mark as Wasted'}</Text>
           </Pressable>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Delete Product" disabled={deleting} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || deleting) && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Delete Product" disabled={busy !== null} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || busy !== null) && styles.pressed]}>
           <Ionicons name="trash-outline" size={18} color={colors.expired} />
-          <Text style={styles.deleteText}>{deleting ? 'Deleting...' : 'Delete Product'}</Text>
+          <Text style={styles.deleteText}>{busy === 'delete' ? 'Deleting...' : 'Delete Product'}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
