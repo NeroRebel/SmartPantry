@@ -1,20 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { getProductStats } from '@/db/products';
+import { useFocusedData } from '@/hooks/use-focused-data';
+import type { ProductStats } from '@/types/product';
 
 const colors = {
   background: '#050505', surface: '#141416', border: '#252528', white: '#FFFFFF',
   secondary: '#99999F', orange: '#FF6B3D', red: '#FF625C', yellow: '#FFBE55', green: '#68D8A0',
 };
 
-const pantryStatus = [
-  { label: 'Expired', overviewLabel: 'Expired', count: 2, color: colors.red, icon: 'alert-circle-outline' },
-  { label: 'Soon', overviewLabel: 'Expiring soon', count: 3, color: colors.yellow, icon: 'time-outline' },
-  { label: 'Good', overviewLabel: 'Fresh', count: 12, color: colors.green, icon: 'checkmark-circle-outline' },
-] as const;
-const totalItems = pantryStatus.reduce((total, status) => total + status.count, 0);
+const emptyStats: ProductStats = { total: 0, fresh: 0, expiringSoon: 0, expired: 0 };
 
 function openInventory() {
   router.navigate('/(tabs)/inventory');
@@ -22,6 +21,15 @@ function openInventory() {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { data, loading, error, reload } = useFocusedData(getProductStats);
+  const stats = data ?? emptyStats;
+  const pantryStatus = [
+    { label: 'Expired', overviewLabel: 'Expired', count: stats.expired, color: colors.red, icon: 'alert-circle-outline' },
+    { label: 'Soon', overviewLabel: 'Expiring soon', count: stats.expiringSoon, color: colors.yellow, icon: 'time-outline' },
+    { label: 'Good', overviewLabel: 'Fresh', count: stats.fresh, color: colors.green, icon: 'checkmark-circle-outline' },
+  ] as const;
+  const heroCount = stats.total === 0 ? 'Pantry is empty' : stats.expiringSoon === 0 ? 'All good' : `${stats.expiringSoon} ${stats.expiringSoon === 1 ? 'item' : 'items'}`;
+  const heroTitle = stats.total === 0 ? 'Add your first product' : stats.expiringSoon === 0 ? 'No items expiring soon' : 'expiring soon';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -56,9 +64,20 @@ export default function HomeScreen() {
           <Text style={styles.searchPlaceholder}>Search your pantry...</Text>
         </Pressable>
 
+        {error ? (
+          <View style={styles.loadMessage}>
+            <Text accessibilityRole="alert" style={styles.loadMessageText}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}>
+              <Text style={styles.retryText}>Try Again</Text>
+            </Pressable>
+          </View>
+        ) : loading && !data ? (
+          <ActivityIndicator color={colors.orange} accessibilityLabel="Loading pantry overview" />
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="3 items expiring soon. View inventory"
+          accessibilityLabel={`${heroCount}. ${heroTitle}. View inventory`}
           onPress={openInventory}
           style={({ pressed }) => [styles.hero, pressed && styles.pressed]}
         >
@@ -71,12 +90,12 @@ export default function HomeScreen() {
             <View style={styles.heroCopy}>
               <View style={styles.heroEyebrow}>
                 <Ionicons name="time-outline" size={15} color="#FFE2D6" />
-                <Text style={styles.heroEyebrowText}>USE THEM FIRST</Text>
+                <Text style={styles.heroEyebrowText}>{stats.expiringSoon > 0 ? 'USE THEM FIRST' : 'PANTRY UPDATE'}</Text>
               </View>
-              <Text style={styles.heroCount}>3 items</Text>
-              <Text style={styles.heroTitle}>expiring soon</Text>
+              <Text style={[styles.heroCount, stats.total === 0 && styles.heroEmptyCount]}>{heroCount}</Text>
+              <Text style={styles.heroTitle}>{heroTitle}</Text>
               <View style={styles.heroAction}>
-                <Text style={styles.heroActionText}>View items</Text>
+                <Text style={styles.heroActionText}>{stats.total === 0 ? 'Open inventory' : 'View items'}</Text>
                 <Ionicons name="arrow-forward" size={17} color={colors.white} />
               </View>
             </View>
@@ -111,11 +130,11 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <View style={styles.totalRow}>
-            <Text style={styles.totalCount}>{totalItems}</Text>
-            <Text style={styles.totalLabel}>total items</Text>
+            <Text style={styles.totalCount}>{stats.total}</Text>
+            <Text style={styles.totalLabel}>total {stats.total === 1 ? 'item' : 'items'}</Text>
           </View>
-          <View accessible accessibilityLabel="Pantry breakdown: 2 expired, 3 expiring soon, 12 fresh" style={styles.breakdownBar}>
-            {pantryStatus.map((status) => (
+          <View accessible accessibilityLabel={`Pantry breakdown: ${stats.expired} expired, ${stats.expiringSoon} expiring soon, ${stats.fresh} fresh`} style={styles.breakdownBar}>
+            {pantryStatus.filter((status) => status.count > 0).map((status) => (
               <View key={status.label} style={{ flex: status.count, backgroundColor: status.color }} />
             ))}
           </View>
@@ -179,12 +198,17 @@ const styles = StyleSheet.create({
   avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, paddingHorizontal: 17, paddingVertical: 14, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   searchPlaceholder: { flex: 1, color: colors.secondary, fontSize: 14 },
+  loadMessage: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  loadMessageText: { flex: 1, color: colors.secondary, fontSize: 12, lineHeight: 18 },
+  retryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  retryText: { color: colors.orange, fontSize: 12, fontWeight: '600' },
   hero: { borderRadius: 24, overflow: 'hidden' },
   heroContent: { minHeight: 194, flexDirection: 'row', alignItems: 'center', padding: 22, gap: 8 },
   heroCopy: { flex: 1, zIndex: 1 },
   heroEyebrow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
   heroEyebrowText: { color: '#FFE2D6', fontSize: 10, fontWeight: '700' },
   heroCount: { color: colors.white, fontSize: 34, lineHeight: 40, fontWeight: '700' },
+  heroEmptyCount: { fontSize: 28, lineHeight: 34 },
   heroTitle: { color: colors.white, fontSize: 20, lineHeight: 26, fontWeight: '500' },
   heroAction: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 17 },
   heroActionText: { color: colors.white, fontSize: 12, fontWeight: '600' },
@@ -203,7 +227,7 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9 },
   totalCount: { color: colors.white, fontSize: 38, lineHeight: 44, fontWeight: '700', fontVariant: ['tabular-nums'] },
   totalLabel: { color: colors.secondary, fontSize: 13 },
-  breakdownBar: { height: 10, flexDirection: 'row', gap: 4, borderRadius: 5, overflow: 'hidden' },
+  breakdownBar: { height: 10, flexDirection: 'row', gap: 4, borderRadius: 5, overflow: 'hidden', backgroundColor: colors.border },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },

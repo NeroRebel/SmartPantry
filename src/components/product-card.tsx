@@ -2,12 +2,21 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pantryColors as colors } from '@/constants/pantry-theme';
-import { getExpirationLabel, getProductStatus, type Product, type ProductStatus } from '@/data/mock-products';
+import type { Product, ProductStatus } from '@/types/product';
+import { formatQuantity, getExpirationLabel, getProductStatus } from '@/utils/product-status';
 
 export const statusColors: Record<ProductStatus, string> = {
-  Fresh: colors.fresh,
-  'Expiring Soon': colors.soon,
-  Expired: colors.expired,
+  fresh: colors.fresh,
+  expiringSoon: colors.soon,
+  expired: colors.expired,
+};
+
+export const statusLabels: Record<ProductStatus, string> = { fresh: 'Fresh', expiringSoon: 'Expiring Soon', expired: 'Expired' };
+
+const categoryIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Dairy: 'water-outline', Meat: 'restaurant-outline', Vegetables: 'nutrition-outline',
+  Fruit: 'nutrition-outline', Bakery: 'pizza-outline', Drinks: 'cafe-outline',
+  Frozen: 'snow-outline', Pantry: 'file-tray-outline',
 };
 
 export function StatusBadge({ status }: { status: ProductStatus }) {
@@ -15,27 +24,27 @@ export function StatusBadge({ status }: { status: ProductStatus }) {
   return (
     <View style={[styles.badge, { backgroundColor: `${color}18` }]}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.badgeText, { color }]}>{status}</Text>
+      <Text style={[styles.badgeText, { color }]}>{statusLabels[status]}</Text>
     </View>
   );
 }
 
 export function ProductIcon({ product, large = false }: { product: Product; large?: boolean }) {
-  const color = statusColors[getProductStatus(product.daysUntilExpiry)];
+  const color = statusColors[getProductStatus(product.expirationDate)];
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.icon, large && styles.largeIcon, { backgroundColor: `${color}12` }]}>
-      <Ionicons name={product.icon} size={large ? 52 : 27} color={color} />
+      <Ionicons name={categoryIcons[product.category] ?? 'cube-outline'} size={large ? 52 : 27} color={color} />
     </View>
   );
 }
 
 export function ProductCard({ product, onPress }: { product: Product; onPress: () => void }) {
-  const status = getProductStatus(product.daysUntilExpiry);
-  const expiration = getExpirationLabel(product.daysUntilExpiry);
+  const status = getProductStatus(product.expirationDate);
+  const expiration = getExpirationLabel(product.expirationDate);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${product.name}, ${product.quantity}, ${expiration}, ${status}`}
+      accessibilityLabel={`${product.name}, ${formatQuantity(product)}, ${expiration}, ${statusLabels[status]}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -43,7 +52,7 @@ export function ProductCard({ product, onPress }: { product: Product; onPress: (
         <ProductIcon product={product} />
         <View style={styles.copy}>
           <Text style={styles.name}>{product.name}</Text>
-          <Text style={styles.quantity}>{product.quantity}</Text>
+          <Text style={styles.quantity}>{formatQuantity(product)}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
       </View>

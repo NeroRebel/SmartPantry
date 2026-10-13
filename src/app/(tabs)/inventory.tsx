@@ -1,23 +1,28 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ProductCard } from '@/components/product-card';
+import { ProductCard, statusLabels } from '@/components/product-card';
 import { pantryColors as colors } from '@/constants/pantry-theme';
-import { getProductStatus, mockProducts, type ProductStatus } from '@/data/mock-products';
+import { getProducts } from '@/db/products';
+import { useFocusedData } from '@/hooks/use-focused-data';
+import type { ProductStatus } from '@/types/product';
+import { getProductStatus } from '@/utils/product-status';
 
-const filters = ['All', 'Fresh', 'Expiring Soon', 'Expired'] as const;
+const filters = ['all', 'fresh', 'expiringSoon', 'expired'] as const;
 
 export default function InventoryScreen() {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'All' | ProductStatus>('All');
+  const [filter, setFilter] = useState<'all' | ProductStatus>('all');
+  const { data, loading, error, reload } = useFocusedData(getProducts);
+  const allProducts = data ?? [];
   const insets = useSafeAreaInsets();
   const search = query.trim().toLowerCase();
-  const products = mockProducts.filter((product) =>
-    (filter === 'All' || getProductStatus(product.daysUntilExpiry) === filter) &&
-    `${product.name} ${product.category}`.toLowerCase().includes(search)
+  const products = allProducts.filter((product) =>
+    (filter === 'all' || getProductStatus(product.expirationDate) === filter) &&
+    `${product.name} ${product.brand ?? ''} ${product.category}`.toLowerCase().includes(search)
   );
 
   return (
@@ -31,7 +36,7 @@ export default function InventoryScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add product manually"
-            onPress={() => Alert.alert('Add Product', 'Manual product entry is coming soon.')}
+            onPress={() => router.push('/product/add')}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >
             <Ionicons name="add" size={26} color={colors.accent} />
@@ -64,12 +69,12 @@ export default function InventoryScreen() {
             <Pressable
               key={item}
               accessibilityRole="button"
-              accessibilityLabel={item}
+              accessibilityLabel={item === 'all' ? 'All' : statusLabels[item]}
               accessibilityState={{ selected: filter === item }}
               onPress={() => setFilter(item)}
               style={({ pressed }) => [styles.chip, filter === item && styles.selectedChip, pressed && styles.pressed]}
             >
-              <Text style={[styles.chipText, filter === item && styles.selectedChipText]}>{item}</Text>
+              <Text style={[styles.chipText, filter === item && styles.selectedChipText]}>{item === 'all' ? 'All' : statusLabels[item]}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -82,9 +87,16 @@ export default function InventoryScreen() {
           </View>
         </View>
 
-        <FlatList
+        {error ? (
+          <View style={styles.empty}>
+            <Text accessibilityRole="alert" style={styles.emptyText}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={reload} style={styles.emptyButton}><Text style={styles.emptyButtonText}>Try Again</Text></Pressable>
+          </View>
+        ) : loading && !data ? (
+          <ActivityIndicator style={styles.loader} color={colors.accent} accessibilityLabel="Loading inventory" />
+        ) : <FlatList
           data={products}
-          keyExtractor={(product) => product.id}
+          keyExtractor={(product) => String(product.id)}
           renderItem={({ item }) => (
             <ProductCard product={item} onPress={() => router.push({ pathname: '/product/[id]', params: { id: item.id } })} />
           )}
@@ -92,15 +104,18 @@ export default function InventoryScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          refreshing={loading}
+          onRefresh={reload}
           contentContainerStyle={{ paddingBottom: Math.max(Platform.OS === 'ios' ? 86 : 72, insets.bottom) + 36 }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="leaf-outline" size={36} color={colors.secondary} />
-              <Text style={styles.emptyTitle}>{!search && filter === 'Expired' ? 'Nothing expired' : 'No products found'}</Text>
-              <Text style={styles.emptyText}>{!search && filter === 'Expired' ? 'Your pantry is looking good.' : 'Try another search or filter.'}</Text>
+              <Text style={styles.emptyTitle}>{allProducts.length === 0 ? 'No products yet' : !search && filter === 'expired' ? 'Nothing expired' : 'No products found'}</Text>
+              <Text style={styles.emptyText}>{allProducts.length === 0 ? 'Add your first product to start tracking your pantry.' : !search && filter === 'expired' ? 'Your pantry is looking good.' : 'Try another search or filter.'}</Text>
+              {allProducts.length === 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/product/add')} style={styles.emptyButton}><Text style={styles.emptyButtonText}>Add Product</Text></Pressable>}
             </View>
           }
-        />
+        />}
       </View>
     </SafeAreaView>
   );
@@ -130,6 +145,9 @@ const styles = StyleSheet.create({
   separator: { height: 12 },
   empty: { alignItems: 'center', paddingVertical: 50, gap: 12 },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  emptyText: { color: colors.secondary, fontSize: 13 },
+  emptyText: { color: colors.secondary, fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  emptyButton: { minHeight: 48, padding: 15, borderRadius: 12, backgroundColor: colors.surface },
+  emptyButtonText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  loader: { marginTop: 48 },
   pressed: { opacity: 0.7 },
 });

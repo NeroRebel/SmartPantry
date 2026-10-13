@@ -1,12 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProductIcon, StatusBadge, statusColors } from '@/components/product-card';
 import { pantryColors as colors } from '@/constants/pantry-theme';
-import { formatExpirationDate, getExpirationLabel, getProductStatus, mockProducts, type Product } from '@/data/mock-products';
+import { ProductLoadState } from '@/components/product-load-state';
+import { deleteProduct, getProductById } from '@/db/products';
+import { useFocusedData } from '@/hooks/use-focused-data';
+import type { Product } from '@/types/product';
+import { formatExpirationDate, formatQuantity, getExpirationLabel, getProductStatus } from '@/utils/product-status';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -35,8 +39,37 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 
 function ProductDetails({ product }: { product: Product }) {
   const [reminderEnabled, setReminderEnabled] = useState(false);
-  const status = getProductStatus(product.daysUntilExpiry);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  const status = getProductStatus(product.expirationDate);
   const showPlaceholder = (action: string) => Alert.alert(action, `${action} for ${product.name} is coming soon.`);
+
+  async function remove() {
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setDeleting(true);
+    try {
+      await deleteProduct(product.id);
+      router.dismissTo('/(tabs)/inventory');
+    } catch {
+      Alert.alert('Unable to delete', 'Your product was not deleted. Please try again.');
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
+    }
+  }
+
+  function confirmDelete() {
+    const message = `Remove ${product.name} from your pantry? This cannot be undone.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) void remove();
+    } else {
+      Alert.alert('Delete Product?', message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void remove() },
+      ]);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -51,19 +84,20 @@ function ProductDetails({ product }: { product: Product }) {
           <ProductIcon product={product} large />
           <Text style={styles.category}>{product.category}</Text>
           <Text accessibilityRole="header" style={styles.name}>{product.name}</Text>
+          {product.brand && <Text style={styles.category}>{product.brand}</Text>}
           <View style={styles.centerBadge}><StatusBadge status={status} /></View>
-          <Text style={[styles.expiration, { color: statusColors[status] }]}>{getExpirationLabel(product.daysUntilExpiry)}</Text>
+          <Text style={[styles.expiration, { color: statusColors[status] }]}>{getExpirationLabel(product.expirationDate)}</Text>
         </View>
 
         <View style={styles.details}>
-          <DetailRow icon="cube-outline" label="Quantity" value={product.quantity} />
+          <DetailRow icon="cube-outline" label="Quantity" value={formatQuantity(product)} />
           <DetailRow icon="calendar-outline" label="Expiration date" value={formatExpirationDate(product.expirationDate)} />
-          <DetailRow icon="file-tray-outline" label="Storage location" value={product.storage} />
+          <DetailRow icon="file-tray-outline" label="Storage location" value={product.storageLocation || 'Not specified'} />
         </View>
 
         <View style={styles.notes}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>Notes</Text>
-          <Text style={styles.notesText}>{product.notes}</Text>
+          <Text style={styles.notesText}>{product.notes || 'No notes added.'}</Text>
         </View>
 
         <View style={styles.reminderRow}>
@@ -82,7 +116,7 @@ function ProductDetails({ product }: { product: Product }) {
           />
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit Product" onPress={() => showPlaceholder('Edit Product')} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit Product" disabled={deleting} onPress={() => router.push({ pathname: '/product/[id]/edit', params: { id: product.id } })} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
           <Ionicons name="create-outline" size={21} color={colors.background} />
           <Text style={styles.editText}>Edit Product</Text>
         </Pressable>
@@ -98,9 +132,9 @@ function ProductDetails({ product }: { product: Product }) {
           </Pressable>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Delete Product" onPress={() => showPlaceholder('Delete Product')} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Delete Product" disabled={deleting} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || deleting) && styles.pressed]}>
           <Ionicons name="trash-outline" size={18} color={colors.expired} />
-          <Text style={styles.deleteText}>Delete Product</Text>
+          <Text style={styles.deleteText}>{deleting ? 'Deleting...' : 'Delete Product'}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -109,18 +143,12 @@ function ProductDetails({ product }: { product: Product }) {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
-  const product = mockProducts.find((item) => item.id === id);
+  const productId = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : NaN;
+  const load = useCallback(() => Number.isSafeInteger(productId) && productId > 0 ? getProductById(productId) : Promise.resolve(null), [productId]);
+  const { data: product, loading, error, reload } = useFocusedData(load);
 
-  if (!product) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.content}>
-          <BackButton />
-          <Text accessibilityRole="header" style={styles.name}>Product not found</Text>
-          <Text style={styles.notesText}>This product is not in your pantry.</Text>
-        </View>
-      </SafeAreaView>
-    );
+  if (loading || error || !product) {
+    return <ProductLoadState loading={loading} error={error} onRetry={reload} onBack={() => router.dismissTo('/(tabs)/inventory')} />;
   }
 
   return <ProductDetails key={product.id} product={product} />;
