@@ -3,10 +3,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ShoppingItemForm } from '@/components/shopping-item-form';
 import { ShoppingItemRow } from '@/components/shopping-item-row';
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { clearCompletedShoppingItems, createShoppingItem, deleteShoppingItem, getShoppingItems, toggleShoppingItemCompleted, updateShoppingItem } from '@/db/shopping-list';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { NewShoppingItem, ShoppingItem } from '@/types/shopping-item';
@@ -17,6 +19,8 @@ function goBack() {
 }
 
 export default function ShoppingListScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const { data, setData: setItems, loading, error, reload } = useFocusedData(getShoppingItems);
   const items = data ?? [];
   const [query, setQuery] = useState('');
@@ -30,8 +34,8 @@ export default function ShoppingListScreen() {
   const toBuy = filtered.filter((item) => !item.completed);
   const purchased = filtered.filter((item) => item.completed);
   const sections = [
-    ...(toBuy.length ? [{ title: 'To Buy', data: toBuy }] : []),
-    ...(purchased.length ? [{ title: 'Purchased', data: purchased }] : []),
+    ...(toBuy.length ? [{ id: 'toBuy', title: t('shopping.toBuyTitle'), data: toBuy }] : []),
+    ...(purchased.length ? [{ id: 'purchased', title: t('shopping.purchasedTitle'), data: purchased }] : []),
   ];
 
   function openAdd() {
@@ -56,36 +60,36 @@ export default function ShoppingListScreen() {
       reload();
     } catch {
       setItems((current) => (current ?? []).map((entry) => entry.id === item.id ? item : entry));
-      Alert.alert('Unable to update', 'Could not change this item. Please try again.');
+      Alert.alert(t('shopping.unableUpdate'), t('common.pleaseTryAgain'));
     } finally {
       setWorkingId(null);
     }
   }
 
   function remove(item: ShoppingItem) {
-    Alert.alert('Delete item?', `Remove ${item.name} from your shopping list?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => {
+    Alert.alert(t('shopping.deleteItem'), t('shopping.deleteConfirm', { name: item.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => {
         if (workingId !== null) return;
         setWorkingId(item.id);
         void deleteShoppingItem(item.id).then(() => {
           setItems((current) => (current ?? []).filter((entry) => entry.id !== item.id));
           reload();
-        }).catch(() => Alert.alert('Unable to delete', 'Please try again.')).finally(() => setWorkingId(null));
+        }).catch(() => Alert.alert(t('shopping.unableDelete'), t('common.pleaseTryAgain'))).finally(() => setWorkingId(null));
       } },
     ]);
   }
 
   function clearPurchased() {
-    Alert.alert('Clear purchased items?', `Remove ${purchasedCount} purchased ${purchasedCount === 1 ? 'item' : 'items'}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear Purchased', style: 'destructive', onPress: () => {
+    Alert.alert(t('shopping.clearItems'), t('shopping.clearConfirm', { count: purchasedCount }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('shopping.clearPurchased'), style: 'destructive', onPress: () => {
         if (workingId !== null) return;
         setWorkingId(-1);
         void clearCompletedShoppingItems().then(() => {
           setItems((current) => (current ?? []).filter((item) => !item.completed));
           reload();
-        }).catch(() => Alert.alert('Unable to clear', 'Please try again.')).finally(() => setWorkingId(null));
+        }).catch(() => Alert.alert(t('shopping.unableClear'), t('common.pleaseTryAgain'))).finally(() => setWorkingId(null));
       } },
     ]);
   }
@@ -100,7 +104,7 @@ export default function ShoppingListScreen() {
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>{section.title}</Text>
-            {section.title === 'Purchased' && purchasedCount > 0 && <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={clearPurchased} style={styles.clearPurchased}><Text style={styles.clearPurchasedText}>Clear Purchased</Text></Pressable>}
+            {section.id === 'purchased' && purchasedCount > 0 && <Pressable accessibilityRole="button" disabled={workingId !== null} onPress={clearPurchased} style={styles.clearPurchased}><Text style={styles.clearPurchasedText}>{t('shopping.clearPurchased')}</Text></Pressable>}
           </View>
         )}
         stickySectionHeadersEnabled={false}
@@ -112,29 +116,29 @@ export default function ShoppingListScreen() {
         ListHeaderComponent={
           <View style={styles.headerContent}>
             <View style={styles.topBar}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={goBack} style={styles.back}><Ionicons name="chevron-back" size={24} color={colors.text} /></Pressable>
-              <Text accessibilityRole="header" style={styles.title}>Shopping List</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={goBack} style={styles.back}><Ionicons name="chevron-back" size={24} color={colors.text} /></Pressable>
+              <Text accessibilityRole="header" style={styles.title}>{t('shopping.title')}</Text>
             </View>
             <View style={styles.summary}>
-              <View style={styles.summaryBlock}><Text style={styles.toBuyCount}>{toBuyCount}</Text><Text style={styles.summaryLabel}>to buy</Text></View>
+              <View style={styles.summaryBlock}><Text style={styles.toBuyCount}>{toBuyCount}</Text><Text style={styles.summaryLabel}>{t('shopping.toBuy')}</Text></View>
               <View style={styles.summaryDivider} />
-              <View style={styles.summaryBlock}><Text style={styles.purchasedCount}>{purchasedCount}</Text><Text style={styles.summaryLabel}>purchased</Text></View>
+              <View style={styles.summaryBlock}><Text style={styles.purchasedCount}>{purchasedCount}</Text><Text style={styles.summaryLabel}>{t('shopping.purchased')}</Text></View>
             </View>
-            <Pressable accessibilityRole="button" onPress={openAdd} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}><Ionicons name="add" size={22} color={colors.background} /><Text style={styles.addButtonText}>Add Item</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={openAdd} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}><Ionicons name="add" size={22} color={colors.background} /><Text style={styles.addButtonText}>{t('shopping.add')}</Text></Pressable>
             {items.length > 0 && <View style={styles.search}>
               <Ionicons name="search-outline" size={20} color={colors.secondary} />
-              <TextInput accessibilityLabel="Search shopping list" placeholder="Search shopping list..." placeholderTextColor={colors.secondary} selectionColor={colors.accent} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} style={styles.searchInput} />
-              {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setQuery('')} style={styles.clearSearch}><Ionicons name="close-circle" size={20} color={colors.secondary} /></Pressable>}
+              <TextInput accessibilityLabel={t('shopping.search')} placeholder={t('shopping.search')} placeholderTextColor={colors.secondary} selectionColor={colors.accent} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} style={styles.searchInput} />
+              {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={t('common.searchClear')} onPress={() => setQuery('')} style={styles.clearSearch}><Ionicons name="close-circle" size={20} color={colors.secondary} /></Pressable>}
             </View>}
-            {error && <View style={styles.errorRow}><Text accessibilityRole="alert" style={styles.errorText}>Couldn&apos;t load shopping list.</Text><Pressable accessibilityRole="button" onPress={reload}><Text style={styles.retryText}>Try Again</Text></Pressable></View>}
+            {error && <View style={styles.errorRow}><Text accessibilityRole="alert" style={styles.errorText}>{t('shopping.loadError')}</Text><Pressable accessibilityRole="button" onPress={reload}><Text style={styles.retryText}>{t('common.tryAgain')}</Text></Pressable></View>}
           </View>
         }
         ListEmptyComponent={loading && !data ? <ActivityIndicator color={colors.accent} style={styles.loader} /> : !error ? (
           <View style={styles.empty}>
             <Ionicons name={items.length ? 'search-outline' : 'basket-outline'} size={40} color={colors.secondary} />
-            <Text accessibilityRole="header" style={styles.emptyTitle}>{items.length ? 'No items found' : 'Your shopping list is empty'}</Text>
-            <Text style={styles.emptyText}>{items.length ? 'Try another search.' : 'Add items you want to buy.'}</Text>
-            {items.length === 0 && <Pressable accessibilityRole="button" onPress={openAdd} style={styles.emptyAction}><Text style={styles.emptyActionText}>Add Item</Text></Pressable>}
+            <Text accessibilityRole="header" style={styles.emptyTitle}>{items.length ? t('shopping.noResults') : t('shopping.empty')}</Text>
+            <Text style={styles.emptyText}>{items.length ? t('shopping.noResultsBody') : t('shopping.emptyBody')}</Text>
+            {items.length === 0 && <Pressable accessibilityRole="button" onPress={openAdd} style={styles.emptyAction}><Text style={styles.emptyActionText}>{t('shopping.add')}</Text></Pressable>}
           </View>
         ) : null}
       />
@@ -143,7 +147,7 @@ export default function ShoppingListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 48 },
   headerContent: { gap: 20, marginBottom: 10 },

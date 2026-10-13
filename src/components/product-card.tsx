@@ -1,17 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import type { Product, ProductStatus } from '@/types/product';
-import { formatQuantity, getExpirationLabel, getProductStatus } from '@/utils/product-status';
+import { expirationLabel } from '@/i18n/format';
+import { formatQuantity, getProductStatus } from '@/utils/product-status';
 
-export const statusColors: Record<ProductStatus, string> = {
-  fresh: colors.fresh,
-  expiringSoon: colors.soon,
-  expired: colors.expired,
-};
-
-export const statusLabels: Record<ProductStatus, string> = { fresh: 'Fresh', expiringSoon: 'Expiring Soon', expired: 'Expired' };
+export function statusColor(status: ProductStatus, colors: AppColors): string {
+  return status === 'fresh' ? colors.fresh : status === 'expiringSoon' ? colors.soon : colors.expired;
+}
 
 const categoryIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   Dairy: 'water-outline', Meat: 'restaurant-outline', 'Meat & Fish': 'restaurant-outline', Vegetables: 'nutrition-outline',
@@ -20,17 +19,20 @@ const categoryIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function StatusBadge({ status }: { status: ProductStatus }) {
-  const color = statusColors[status];
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
+  const color = statusColor(status, colors);
   return (
     <View style={[styles.badge, { backgroundColor: `${color}18` }]}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.badgeText, { color }]}>{statusLabels[status]}</Text>
+      <Text style={[styles.badgeText, { color }]}>{t(status === 'expiringSoon' ? 'common.soon' : `common.${status}`)}</Text>
     </View>
   );
 }
 
 export function ProductIcon({ product, large = false }: { product: Product; large?: boolean }) {
-  const color = statusColors[getProductStatus(product.expirationDate)];
+  const { colors, styles } = useThemedStyles(createStyles);
+  const color = statusColor(getProductStatus(product.expirationDate), colors);
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.icon, large && styles.largeIcon, { backgroundColor: `${color}12` }]}>
       <Ionicons name={categoryIcons[product.category] ?? 'cube-outline'} size={large ? 52 : 27} color={color} />
@@ -39,12 +41,16 @@ export function ProductIcon({ product, large = false }: { product: Product; larg
 }
 
 export function ProductCard({ product, onPress }: { product: Product; onPress: () => void }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const status = getProductStatus(product.expirationDate);
-  const expiration = getExpirationLabel(product.expirationDate);
+  const expiration = expirationLabel(product.expirationDate, t);
+  const quantity = product.quantity === null ? t('common.notSpecified') : formatQuantity(product);
+  const statusLabel = t(status === 'expiringSoon' ? 'common.soon' : `common.${status}`);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${product.name}, ${formatQuantity(product)}, ${expiration}, ${statusLabels[status]}`}
+      accessibilityLabel={`${product.name}, ${quantity}, ${expiration}, ${statusLabel}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -52,19 +58,19 @@ export function ProductCard({ product, onPress }: { product: Product; onPress: (
         <ProductIcon product={product} />
         <View style={styles.copy}>
           <Text style={styles.name}>{product.name}</Text>
-          <Text style={styles.quantity}>{formatQuantity(product)}</Text>
+          <Text style={styles.quantity}>{quantity}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
       </View>
       <View style={styles.footer}>
-        <Text style={[styles.expiration, { color: statusColors[status] }]}>{expiration}</Text>
+        <Text style={[styles.expiration, { color: statusColor(status, colors) }]}>{expiration}</Text>
         <StatusBadge status={status} />
       </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   card: { padding: 16, gap: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 18 },
   productRow: { flexDirection: 'row', alignItems: 'center', gap: 13 },
   icon: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

@@ -2,8 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import type { Recipe, RecipeListItem, RecipeMatch } from '@/types/recipe';
 
 const visualColors: Record<string, readonly [string, string]> = {
@@ -13,6 +15,7 @@ const visualColors: Record<string, readonly [string, string]> = {
 };
 
 export function RecipeVisual({ recipe, large = false }: { recipe: Pick<RecipeListItem, 'name' | 'imageUrl' | 'emoji' | 'category'>; large?: boolean }) {
+  const { styles } = useThemedStyles(createStyles);
   const [failedImage, setFailedImage] = useState<string | null>(null);
   return (
     <View style={[styles.visual, large ? styles.largeVisual : styles.cardVisual]}>
@@ -28,13 +31,15 @@ export function RecipeVisual({ recipe, large = false }: { recipe: Pick<RecipeLis
 }
 
 export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem | Recipe; onPress: () => void; match?: RecipeMatch }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const ingredientCount = 'ingredientCount' in recipe ? recipe.ingredientCount : recipe.ingredients.length;
   const hasMeta = recipe.prepTime != null || !!recipe.difficulty || ingredientCount != null;
   const complete = !!match && match.totalCount > 0 && match.missingIngredients.length === 0;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${recipe.name}, ${recipe.area ?? recipe.category}${recipe.prepTime != null ? `, ${recipe.prepTime} minutes` : ''}${recipe.difficulty ? `, ${recipe.difficulty}` : ''}${match ? `, ${match.availableCount} of ${match.totalCount} ingredients available` : ''}`}
+      accessibilityLabel={`${recipe.name}, ${recipe.area ?? recipe.category}${recipe.prepTime != null ? `, ${t('common.minutes', { count: recipe.prepTime })}` : ''}${recipe.difficulty ? `, ${recipe.difficulty}` : ''}${match ? `, ${t('recipe.haveCount', { available: match.availableCount, total: match.totalCount })}` : ''}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -48,15 +53,15 @@ export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem 
           <Ionicons name="chevron-forward" size={19} color={colors.secondary} />
         </View>
         {hasMeta && <View style={styles.meta}>
-          {recipe.prepTime != null && <Meta icon="time-outline" text={`${recipe.prepTime} min`} />}
+          {recipe.prepTime != null && <Meta icon="time-outline" text={t('common.minutes', { count: recipe.prepTime })} />}
           {recipe.difficulty && <Meta icon="flame-outline" text={recipe.difficulty} />}
-          {ingredientCount != null && <Meta icon="list-outline" text={`${ingredientCount} ingredients`} />}
+          {ingredientCount != null && <Meta icon="list-outline" text={t('common.ingredientCount', { count: ingredientCount })} />}
         </View>}
         {match && <View style={styles.matchRow}>
           <Ionicons name={complete ? 'checkmark-circle' : 'sparkles-outline'} size={20} color={complete ? colors.fresh : colors.soon} />
           <View style={styles.matchCopy}>
-            <Text style={[styles.matchCount, { color: complete ? colors.fresh : colors.soon }]}>{match.availableCount}/{match.totalCount} ingredients available</Text>
-            <Text style={styles.matchDetail}>{complete ? 'You can cook this' : `Missing ${match.missingIngredients.length}`}</Text>
+            <Text style={[styles.matchCount, { color: complete ? colors.fresh : colors.soon }]}>{t('recipes.availableCount', { available: match.availableCount, total: match.totalCount })}</Text>
+            <Text style={styles.matchDetail}>{complete ? t('recipes.canCook') : t('recipes.missingCount', { count: match.missingIngredients.length })}</Text>
           </View>
         </View>}
       </View>
@@ -65,10 +70,11 @@ export function RecipeCard({ recipe, onPress, match }: { recipe: RecipeListItem 
 }
 
 function Meta({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  const { colors, styles } = useThemedStyles(createStyles);
   return <View style={styles.metaItem}><Ionicons name={icon} size={14} color={colors.secondary} /><Text style={styles.metaText}>{text}</Text></View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 18, overflow: 'hidden' },
   pressed: { opacity: 0.75 },
   visual: { overflow: 'hidden', backgroundColor: colors.surface },

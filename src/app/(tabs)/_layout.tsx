@@ -1,16 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { ColorValue, Platform, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-const colors = {
-  background: '#050505',
-  tabBar: '#0D0D10',
-  tabBarBorder: '#1F1F24',
-  active: '#FF5A1F',
-  inactive: '#8E8E93',
-  scan: '#FF3B30',
-  white: '#FFFFFF',
-};
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 
 type TabIconName = keyof typeof Ionicons.glyphMap;
 
@@ -27,10 +21,11 @@ function TabIcon({
   focused: boolean;
   elevated?: boolean;
 }) {
+  const { colors, styles } = useThemedStyles(createStyles);
   if (elevated) {
     return (
       <View style={[styles.scanButton, focused && styles.scanButtonFocused]}>
-        <Ionicons name={name} size={size + 5} color={colors.white} />
+        <Ionicons name={name} size={size + 5} color={colors.onAccent} />
       </View>
     );
   }
@@ -39,13 +34,15 @@ function TabIcon({
 }
 
 export default function TabLayout() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         sceneStyle: styles.scene,
-        tabBarActiveTintColor: colors.active,
-        tabBarInactiveTintColor: colors.inactive,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.secondary,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarStyle: styles.tabBar,
       }}
@@ -53,7 +50,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('nav.home'),
           tabBarIcon: ({ color, focused, size }) => (
             <TabIcon name={focused ? 'home' : 'home-outline'} color={color} focused={focused} size={size} />
           ),
@@ -62,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inventory"
         options={{
-          title: 'Inventory',
+          title: t('nav.inventory'),
           tabBarIcon: ({ color, focused, size }) => (
             <TabIcon name={focused ? 'cube' : 'cube-outline'} color={color} focused={focused} size={size} />
           ),
@@ -71,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Scan',
+          title: t('nav.scan'),
           tabBarIcon: ({ color, focused, size }) => (
             <TabIcon name="scan" color={color} elevated focused={focused} size={size} />
           ),
@@ -81,7 +78,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="recipes"
         options={{
-          title: 'Recipes',
+          title: t('nav.recipes'),
           tabBarIcon: ({ color, focused, size }) => (
             <TabIcon name={focused ? 'restaurant' : 'restaurant-outline'} color={color} focused={focused} size={size} />
           ),
@@ -90,7 +87,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
+          title: t('nav.more'),
           tabBarIcon: ({ color, focused, size }) => (
             <TabIcon
               name={focused ? 'ellipsis-horizontal-circle' : 'ellipsis-horizontal-circle-outline'}
@@ -105,7 +102,7 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   scene: {
     backgroundColor: colors.background,
   },
@@ -114,8 +111,8 @@ const styles = StyleSheet.create({
     height: Platform.select({ ios: 86, default: 72 }),
     paddingTop: 8,
     paddingBottom: Platform.select({ ios: 24, default: 12 }),
-    backgroundColor: colors.tabBar,
-    borderTopColor: colors.tabBarBorder,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
   },
   tabBarLabel: {
     fontSize: 11,
@@ -128,15 +125,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 29,
-    backgroundColor: colors.scan,
-    shadowColor: colors.scan,
+    backgroundColor: colors.accentFill,
+    shadowColor: colors.accentFill,
     shadowOpacity: 0.35,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
   scanButtonFocused: {
-    backgroundColor: colors.active,
+    backgroundColor: colors.accentFill,
   },
   scanLabel: {
     marginTop: 18,

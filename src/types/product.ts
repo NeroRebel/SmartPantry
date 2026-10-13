@@ -19,7 +19,8 @@ export interface Product {
   storageLocation: string | null;
   imageUrl: string | null;
   notes: string | null;
+  notificationId: string | null;
   createdAt: string;
 }
 
-export type ProductInput = Omit<Product, 'id' | 'createdAt'>;
+export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'notificationId'>;

@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { getProductHistory, getProductHistoryByDateRange } from '@/db/product-history';
 import { getProductStats } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
@@ -20,6 +21,7 @@ function goBack() {
 }
 
 export default function StatisticsScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
   const [period, setPeriod] = useState<StatisticsPeriod>('30d');
   const load = useCallback(async () => {
     const range = getStatisticsDateRange(period);
@@ -108,7 +110,7 @@ export default function StatisticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 48, gap: 24 },
   topBar: { flexDirection: 'row', alignItems: 'center', gap: 16 },

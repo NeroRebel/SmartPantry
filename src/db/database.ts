@@ -20,6 +20,7 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
             storage_location TEXT,
             image_url TEXT,
             notes TEXT,
+            notification_id TEXT,
             created_at TEXT NOT NULL
           );
           CREATE INDEX IF NOT EXISTS products_expiration_date ON products(expiration_date);
@@ -48,7 +49,30 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
             created_at TEXT
           );
           CREATE INDEX IF NOT EXISTS product_history_action_date ON product_history(action_date DESC, id DESC);
+          CREATE TABLE IF NOT EXISTS notification_settings (
+            id INTEGER PRIMARY KEY CHECK(id = 1),
+            notifications_enabled INTEGER NOT NULL DEFAULT 1 CHECK(notifications_enabled IN (0, 1)),
+            default_reminder_days INTEGER NOT NULL DEFAULT 1 CHECK(default_reminder_days BETWEEN 0 AND 3),
+            language TEXT,
+            theme_mode TEXT NOT NULL DEFAULT 'dark',
+            high_contrast INTEGER NOT NULL DEFAULT 0,
+            accent_color TEXT NOT NULL DEFAULT 'orange'
+          );
+          INSERT OR IGNORE INTO notification_settings (id) VALUES (1);
         `);
+        const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
+        if (!columns.some((column) => column.name === 'notification_id')) {
+          await db.execAsync('ALTER TABLE products ADD COLUMN notification_id TEXT');
+        }
+        const settingsColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(notification_settings)');
+        for (const [name, declaration] of [
+          ['language', 'TEXT'], ['theme_mode', "TEXT NOT NULL DEFAULT 'dark'"],
+          ['high_contrast', 'INTEGER NOT NULL DEFAULT 0'], ['accent_color', "TEXT NOT NULL DEFAULT 'orange'"],
+        ] as const) {
+          if (!settingsColumns.some((column) => column.name === name)) {
+            await db.execAsync(`ALTER TABLE notification_settings ADD COLUMN ${name} ${declaration}`);
+          }
+        }
         return db;
       } catch (error) {
         await db.closeAsync().catch(() => {});

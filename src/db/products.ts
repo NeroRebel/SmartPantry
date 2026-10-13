@@ -4,7 +4,7 @@ import { getProductStatus, isValidISODate } from '@/utils/product-status';
 
 const columns = `id, name, brand, barcode, category, quantity, unit,
   expiration_date AS expirationDate, storage_location AS storageLocation,
-  image_url AS imageUrl, notes, created_at AS createdAt`;
+  image_url AS imageUrl, notes, notification_id AS notificationId, created_at AS createdAt`;
 
 function values(input: ProductInput) {
   if (!input.name.trim() || !input.category.trim() || !isValidISODate(input.expirationDate)) {
@@ -59,4 +59,10 @@ export async function updateProduct(id: number, input: ProductInput): Promise<vo
 export async function deleteProduct(id: number): Promise<void> {
   const db = await initializeDatabase();
   await db.runAsync('DELETE FROM products WHERE id = ?', id);
+}
+
+export async function setProductNotificationId(id: number, notificationId: string | null): Promise<void> {
+  const db = await initializeDatabase();
+  const result = await db.runAsync('UPDATE products SET notification_id = ? WHERE id = ?', notificationId, id);
+  if (!result.changes) throw new Error('This product no longer exists.');
 }

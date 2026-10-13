@@ -1,8 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import type { ShoppingItem } from '@/types/shopping-item';
+import { categoryLabel } from '@/i18n/format';
 
 export function ShoppingItemRow({ item, disabled, onToggle, onEdit, onDelete }: {
   item: ShoppingItem;
@@ -11,25 +14,27 @@ export function ShoppingItemRow({ item, disabled, onToggle, onEdit, onDelete }: 
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const quantity = item.quantity === null ? item.unit : `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`;
-  const detail = [quantity, item.category].filter(Boolean).join(' · ');
+  const detail = [quantity, item.category ? categoryLabel(item.category, t) : null].filter(Boolean).join(' · ');
   return (
     <View style={[styles.row, item.completed && styles.completedRow]}>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: item.completed, disabled }} accessibilityLabel={`${item.name}, ${item.completed ? 'purchased' : 'to buy'}`} disabled={disabled} onPress={onToggle} style={styles.checkboxButton}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: item.completed, disabled }} accessibilityLabel={`${item.name}, ${item.completed ? t('shopping.purchased') : t('shopping.toBuy')}`} disabled={disabled} onPress={onToggle} style={styles.checkboxButton}>
         <Ionicons name={item.completed ? 'checkmark-circle' : 'ellipse-outline'} size={27} color={item.completed ? colors.fresh : colors.secondary} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${item.name}`} disabled={disabled} onPress={onEdit} style={styles.body}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('shopping.edit')}: ${item.name}`} disabled={disabled} onPress={onEdit} style={styles.body}>
         <Text style={[styles.name, item.completed && styles.completedName]}>{item.name}</Text>
         {!!detail && <Text style={styles.detail}>{detail}</Text>}
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} disabled={disabled} onPress={onDelete} style={styles.deleteButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t('common.delete')}: ${item.name}`} disabled={disabled} onPress={onDelete} style={styles.deleteButton}>
         <Ionicons name="trash-outline" size={19} color={colors.secondary} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   row: { minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   completedRow: { opacity: 0.68 },
   checkboxButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

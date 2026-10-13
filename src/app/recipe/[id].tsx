@@ -3,9 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { RecipeVisual } from '@/components/recipe-card';
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { addMissingRecipeIngredients } from '@/data/recipe-shopping';
 import { getRecipeById } from '@/data/recipes';
 import { getProducts } from '@/db/products';
@@ -19,11 +21,13 @@ function goBack() {
 }
 
 function IngredientRow({ ingredient, available }: { ingredient: RecipeIngredient; available: boolean | null }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
     <View style={styles.ingredientRow}>
       <Ionicons name={available ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={available === null ? colors.secondary : available ? colors.fresh : colors.soon} />
       <Text style={styles.ingredientName}>{ingredient.name}</Text>
-      <Text style={styles.measure}>{ingredient.measure ?? 'To taste'}</Text>
+      <Text style={styles.measure}>{ingredient.measure ?? t('recipe.toTaste')}</Text>
     </View>
   );
 }
@@ -37,6 +41,8 @@ function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry,
   adding: boolean;
   onAddMissing: () => void;
 }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const steps = recipe.instructions.split('\n').map((step) => step.trim()).filter(Boolean);
   const complete = !!match && match.totalCount > 0 && match.missingIngredients.length === 0;
 
@@ -44,10 +50,10 @@ function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry,
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Back to recipes" onPress={goBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('recipe.backRecipes')} onPress={goBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
-          <Text style={styles.topBarTitle}>Recipe Details</Text>
+          <Text style={styles.topBarTitle}>{t('recipe.details')}</Text>
           <View style={styles.topBarSpacer} />
         </View>
 
@@ -60,43 +66,43 @@ function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry,
         </View>
 
         <View style={styles.meta}>
-          <Meta icon={recipe.prepTime != null ? 'time-outline' : 'restaurant-outline'} label={recipe.prepTime != null ? 'Prep time' : 'Category'} value={recipe.prepTime != null ? `${recipe.prepTime} min` : recipe.category} />
-          <Meta icon={recipe.difficulty ? 'flame-outline' : 'earth-outline'} label={recipe.difficulty ? 'Difficulty' : 'Cuisine'} value={recipe.difficulty ?? recipe.area ?? 'Unknown'} />
-          <Meta icon="list-outline" label="Ingredients" value={String(recipe.ingredients.length)} />
+          <Meta icon={recipe.prepTime != null ? 'time-outline' : 'restaurant-outline'} label={recipe.prepTime != null ? t('recipe.prepTime') : t('recipe.category')} value={recipe.prepTime != null ? t('common.minutes', { count: recipe.prepTime }) : recipe.category} />
+          <Meta icon={recipe.difficulty ? 'flame-outline' : 'earth-outline'} label={recipe.difficulty ? t('recipe.difficulty') : t('recipe.cuisine')} value={recipe.difficulty ?? recipe.area ?? t('common.unknown')} />
+          <Meta icon="list-outline" label={t('recipe.ingredients')} value={String(recipe.ingredients.length)} />
         </View>
 
         <View style={styles.section}>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>Ingredients</Text>
-          {pantryLoading && !match && <ActivityIndicator color={colors.accent} accessibilityLabel="Checking pantry ingredients" />}
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{t('recipe.ingredients')}</Text>
+          {pantryLoading && !match && <ActivityIndicator color={colors.accent} accessibilityLabel={t('recipe.checking')} />}
           {pantryError && <View style={styles.matchError}>
-            <Text accessibilityRole="alert" style={styles.unavailableText}>Couldn&apos;t check your pantry.</Text>
-            <Pressable accessibilityRole="button" onPress={retryPantry}><Text style={styles.retryText}>Try Again</Text></Pressable>
+            <Text accessibilityRole="alert" style={styles.unavailableText}>{t('recipe.checkError')}</Text>
+            <Pressable accessibilityRole="button" onPress={retryPantry}><Text style={styles.retryText}>{t('common.tryAgain')}</Text></Pressable>
           </View>}
           {match && match.totalCount > 0 && <View style={styles.matchSummary}>
             <Ionicons name={complete ? 'checkmark-circle' : 'basket-outline'} size={22} color={complete ? colors.fresh : colors.soon} />
-            <Text style={[styles.matchSummaryText, { color: complete ? colors.fresh : colors.soon }]}>{complete ? 'You have everything you need' : `You have ${match.availableCount} of ${match.totalCount} ingredients`}</Text>
+            <Text style={[styles.matchSummaryText, { color: complete ? colors.fresh : colors.soon }]}>{complete ? t('recipe.everything') : t('recipe.haveCount', { available: match.availableCount, total: match.totalCount })}</Text>
           </View>}
-          {recipe.ingredients.length === 0 && <Text style={styles.unavailableText}>Ingredients aren&apos;t available for this recipe.</Text>}
+          {recipe.ingredients.length === 0 && <Text style={styles.unavailableText}>{t('recipe.noIngredients')}</Text>}
           {match ? <>
             {match.totalCount > 0 && <View style={styles.ingredientGroup}>
-              <Text style={[styles.groupTitle, { color: colors.fresh }]}>Available · {match.availableCount}</Text>
-              {match.availableCount === 0 ? <Text style={styles.unavailableText}>None in your pantry yet.</Text> :
+              <Text style={[styles.groupTitle, { color: colors.fresh }]}>{t('recipe.available', { count: match.availableCount })}</Text>
+              {match.availableCount === 0 ? <Text style={styles.unavailableText}>{t('recipe.noneAvailable')}</Text> :
                 match.availableIngredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available />)}
             </View>}
             {match.missingIngredients.length > 0 && <View style={styles.ingredientGroup}>
-              <Text style={[styles.groupTitle, { color: colors.soon }]}>Missing · {match.missingIngredients.length}</Text>
+              <Text style={[styles.groupTitle, { color: colors.soon }]}>{t('recipe.missing', { count: match.missingIngredients.length })}</Text>
               {match.missingIngredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available={false} />)}
               <Pressable accessibilityRole="button" disabled={adding} onPress={onAddMissing} style={({ pressed }) => [styles.addMissingButton, (pressed || adding) && styles.pressed]}>
                 {adding ? <ActivityIndicator color={colors.background} /> : <Ionicons name="basket-outline" size={20} color={colors.background} />}
-                <Text style={styles.addMissingText}>{adding ? 'Adding...' : `Add missing ${match.missingIngredients.length === 1 ? 'ingredient' : 'ingredients'} to Shopping List`}</Text>
+                <Text style={styles.addMissingText}>{adding ? t('common.adding') : t('recipe.addMissing', { count: match.missingIngredients.length })}</Text>
               </Pressable>
             </View>}
           </> : recipe.ingredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available={null} />)}
         </View>
 
         <View style={styles.section}>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>Instructions</Text>
-          {steps.length === 0 && <Text style={styles.unavailableText}>Instructions aren&apos;t available for this recipe.</Text>}
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{t('recipe.instructions')}</Text>
+          {steps.length === 0 && <Text style={styles.unavailableText}>{t('recipe.noInstructions')}</Text>}
           {steps.map((step, index) => (
             <View key={index} style={styles.stepRow}>
               <View style={styles.stepNumber}><Text style={styles.stepNumberText}>{index + 1}</Text></View>
@@ -110,6 +116,7 @@ function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry,
 }
 
 function Meta({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const { colors, styles } = useThemedStyles(createStyles);
   return (
     <View style={styles.metaItem}>
       <Ionicons name={icon} size={20} color={colors.accent} />
@@ -120,6 +127,8 @@ function Meta({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; la
 }
 
 export default function RecipeDetailScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const recipeId = typeof id === 'string' ? id : '';
   const load = useCallback(() => getRecipeById(recipeId), [recipeId]);
@@ -137,14 +146,14 @@ export default function RecipeDetailScreen() {
       const result = await addMissingRecipeIngredients(recipe);
       const count = result.added;
       const message = count > 0
-        ? `${count} ${count === 1 ? 'ingredient' : 'ingredients'} added to Shopping List.${result.skipped ? ` ${result.skipped} already on your list.` : ''}`
-        : result.skipped > 0 ? 'These ingredients are already on your Shopping List.' : 'You have everything you need.';
-      Alert.alert('Shopping List', message, [
-        { text: 'Continue' },
-        { text: 'View Shopping List', onPress: () => router.push('/shopping-list') },
+        ? `${t('recipe.added', { count })}${result.skipped ? ` ${t('recipe.alreadyOnList', { count: result.skipped })}` : ''}`
+        : result.skipped > 0 ? t('recipe.allAlready') : t('recipe.everything');
+      Alert.alert(t('shopping.title'), message, [
+        { text: t('recipe.continue') },
+        { text: t('recipe.viewList'), onPress: () => router.push('/shopping-list') },
       ]);
     } catch {
-      Alert.alert('Unable to add ingredients', 'Please try again.');
+      Alert.alert(t('recipe.addError'), t('common.pleaseTryAgain'));
     } finally {
       submitting.current = false;
       setAdding(false);
@@ -152,17 +161,17 @@ export default function RecipeDetailScreen() {
   }
 
   if (loading && !recipe) {
-    return <SafeAreaView style={styles.screen}><ActivityIndicator style={styles.loader} color={colors.accent} accessibilityLabel="Loading recipe" /></SafeAreaView>;
+    return <SafeAreaView style={styles.screen}><ActivityIndicator style={styles.loader} color={colors.accent} accessibilityLabel={t('common.loading')} /></SafeAreaView>;
   }
   if (error || !recipe) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.fallback}>
           <Ionicons name="restaurant-outline" size={40} color={colors.secondary} />
-          <Text accessibilityRole="header" style={styles.fallbackTitle}>{error ? 'Unable to load recipe' : 'Recipe not found'}</Text>
-          <Text style={styles.fallbackText}>{error ? 'Check your connection and try again.' : 'This recipe may no longer be available.'}</Text>
-          {error && <Pressable accessibilityRole="button" onPress={reload} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>Try Again</Text></Pressable>}
-          <Pressable accessibilityRole="button" onPress={goBack} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>Back to Recipes</Text></Pressable>
+          <Text accessibilityRole="header" style={styles.fallbackTitle}>{error ? t('recipe.unableLoad') : t('recipe.notFound')}</Text>
+          <Text style={styles.fallbackText}>{error ? t('recipes.connectionError') : t('recipe.gone')}</Text>
+          {error && <Pressable accessibilityRole="button" onPress={reload} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>{t('common.tryAgain')}</Text></Pressable>}
+          <Pressable accessibilityRole="button" onPress={goBack} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>{t('recipe.backRecipes')}</Text></Pressable>
         </View>
       </SafeAreaView>
     );
@@ -170,7 +179,7 @@ export default function RecipeDetailScreen() {
   return <RecipeDetails recipe={recipe} match={match} pantryLoading={pantryLoading} pantryError={pantryError} retryPantry={retryPantry} adding={adding} onAddMissing={() => void addMissing()} />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, gap: 24 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -200,7 +209,7 @@ const styles = StyleSheet.create({
   addMissingButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, padding: 12, marginTop: 14, borderRadius: 14, backgroundColor: colors.text },
   addMissingText: { flexShrink: 1, color: colors.background, fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center' },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 4 },
-  stepNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FF6B3D20', alignItems: 'center', justifyContent: 'center' },
+  stepNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   stepNumberText: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   stepText: { flex: 1, color: colors.secondary, fontSize: 14, lineHeight: 23 },
   loader: { marginTop: 80 },

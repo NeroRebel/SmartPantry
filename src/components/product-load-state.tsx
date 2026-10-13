@@ -1,6 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useTranslation } from 'react-i18next';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 
 export function ProductLoadState({ loading, error, onRetry, onBack }: {
   loading: boolean;
@@ -8,23 +10,25 @@ export function ProductLoadState({ loading, error, onRetry, onBack }: {
   onRetry: () => void;
   onBack: () => void;
 }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.content}>
-        {loading ? <ActivityIndicator color={colors.accent} accessibilityLabel="Loading product" /> : (
+        {loading ? <ActivityIndicator color={colors.accent} accessibilityLabel={t('common.loading')} /> : (
           <>
-            <Text style={styles.title}>{error ? 'Unable to load product' : 'Product not found'}</Text>
-            <Text style={styles.message}>{error ?? 'This product is no longer in your pantry.'}</Text>
-            {error && <Pressable accessibilityRole="button" onPress={onRetry} style={styles.button}><Text style={styles.buttonText}>Try Again</Text></Pressable>}
+            <Text style={styles.title}>{error ? t('product.loadError') : t('product.notFound')}</Text>
+            <Text style={styles.message}>{error ? t('common.pleaseTryAgain') : t('product.gone')}</Text>
+            {error && <Pressable accessibilityRole="button" onPress={onRetry} style={styles.button}><Text style={styles.buttonText}>{t('common.tryAgain')}</Text></Pressable>}
           </>
         )}
-        <Pressable accessibilityRole="button" onPress={onBack} style={styles.button}><Text style={styles.buttonText}>Back to Inventory</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={onBack} style={styles.button}><Text style={styles.buttonText}>{t('product.backInventory')}</Text></Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 20 },
   title: { color: colors.text, fontSize: 24, fontWeight: '600', textAlign: 'center' },

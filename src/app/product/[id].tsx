@@ -1,18 +1,21 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
-import { ProductIcon, StatusBadge, statusColors } from '@/components/product-card';
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { ProductIcon, StatusBadge, statusColor } from '@/components/product-card';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { ProductLoadState } from '@/components/product-load-state';
-import { markProductAsConsumed, markProductAsWasted } from '@/db/product-history';
-import { deleteProduct, getProductById } from '@/db/products';
+import { getProductById } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
+import { finishProduct, removeProduct } from '@/services/product-lifecycle';
 import type { Product } from '@/types/product';
 import type { ProductHistoryAction } from '@/types/product-history';
-import { formatExpirationDate, formatQuantity, getExpirationLabel, getProductStatus } from '@/utils/product-status';
+import { formatQuantity, getProductStatus } from '@/utils/product-status';
+import { categoryLabel, expirationLabel, storageLabel } from '@/i18n/format';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -20,14 +23,17 @@ function goBack() {
 }
 
 function BackButton() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Back to inventory" onPress={goBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('product.backInventory')} onPress={goBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
       <Ionicons name="chevron-back" size={24} color={colors.text} />
     </Pressable>
   );
 }
 
 function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const { colors, styles } = useThemedStyles(createStyles);
   return (
     <View style={styles.detailRow}>
       <Ionicons name={icon} size={20} color={colors.secondary} />
@@ -40,7 +46,8 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 }
 
 function ProductDetails({ product }: { product: Product }) {
-  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState<'delete' | ProductHistoryAction | null>(null);
   const busyRef = useRef(false);
   const status = getProductStatus(product.expirationDate);
@@ -50,10 +57,10 @@ function ProductDetails({ product }: { product: Product }) {
     busyRef.current = true;
     setBusy('delete');
     try {
-      await deleteProduct(product.id);
+      await removeProduct(product.id);
       router.dismissTo('/(tabs)/inventory');
     } catch {
-      Alert.alert('Unable to delete', 'Your product was not deleted. Please try again.');
+      Alert.alert(t('product.unableDelete'), t('product.deleteError'));
     } finally {
       busyRef.current = false;
       setBusy(null);
@@ -65,11 +72,10 @@ function ProductDetails({ product }: { product: Product }) {
     busyRef.current = true;
     setBusy(action);
     try {
-      if (action === 'consumed') await markProductAsConsumed(product.id);
-      else await markProductAsWasted(product.id);
+      await finishProduct(product.id, action);
       router.dismissTo('/(tabs)/inventory');
     } catch {
-      Alert.alert('Unable to update product', 'Your product is still in Inventory. Please try again.');
+      Alert.alert(t('product.unableUpdate'), t('product.outcomeError'));
     } finally {
       busyRef.current = false;
       setBusy(null);
@@ -77,26 +83,26 @@ function ProductDetails({ product }: { product: Product }) {
   }
 
   function confirmOutcome(action: ProductHistoryAction) {
-    const label = action === 'consumed' ? 'consumed' : 'wasted';
-    const message = `Mark ${product.name} as ${label}? It will move from Inventory to Product History.`;
+    const label = action === 'consumed' ? t('common.consumed') : t('common.wasted');
+    const message = t('product.outcomeConfirm', { name: product.name, action: label });
     if (Platform.OS === 'web') {
       if (window.confirm(message)) void complete(action);
     } else {
-      Alert.alert(`Mark as ${action === 'consumed' ? 'Consumed' : 'Wasted'}?`, message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => void complete(action) },
+      Alert.alert(action === 'consumed' ? t('product.markConsumed') : t('product.markWasted'), message, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: () => void complete(action) },
       ]);
     }
   }
 
   function confirmDelete() {
-    const message = `Remove ${product.name} from your pantry? This cannot be undone.`;
+    const message = t('product.deleteConfirm', { name: product.name });
     if (Platform.OS === 'web') {
       if (window.confirm(message)) void remove();
     } else {
-      Alert.alert('Delete Product?', message, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void remove() },
+      Alert.alert(t('product.delete'), message, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => void remove() },
       ]);
     }
   }
@@ -106,65 +112,58 @@ function ProductDetails({ product }: { product: Product }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
           <BackButton />
-          <Text style={styles.topBarTitle}>Product Details</Text>
+          <Text style={styles.topBarTitle}>{t('product.details')}</Text>
           <View style={styles.topBarSpacer} />
         </View>
 
         <View style={styles.productHeader}>
           <ProductIcon product={product} large />
-          <Text style={styles.category}>{product.category}</Text>
+          <Text style={styles.category}>{categoryLabel(product.category, t)}</Text>
           <Text accessibilityRole="header" style={styles.name}>{product.name}</Text>
           {product.brand && <Text style={styles.category}>{product.brand}</Text>}
           <View style={styles.centerBadge}><StatusBadge status={status} /></View>
-          <Text style={[styles.expiration, { color: statusColors[status] }]}>{getExpirationLabel(product.expirationDate)}</Text>
+          <Text style={[styles.expiration, { color: statusColor(status, colors) }]}>{expirationLabel(product.expirationDate, t)}</Text>
         </View>
 
         <View style={styles.details}>
-          <DetailRow icon="cube-outline" label="Quantity" value={formatQuantity(product)} />
-          <DetailRow icon="calendar-outline" label="Expiration date" value={formatExpirationDate(product.expirationDate)} />
-          <DetailRow icon="file-tray-outline" label="Storage location" value={product.storageLocation || 'Not specified'} />
+          <DetailRow icon="cube-outline" label={t('product.quantity')} value={product.quantity === null ? t('common.notSpecified') : formatQuantity(product)} />
+          <DetailRow icon="calendar-outline" label={t('product.expirationDate')} value={new Date(`${product.expirationDate}T12:00:00`).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' })} />
+          <DetailRow icon="file-tray-outline" label={t('product.storage')} value={product.storageLocation ? storageLabel(product.storageLocation, t) : t('common.notSpecified')} />
         </View>
 
         <View style={styles.notes}>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>Notes</Text>
-          <Text style={styles.notesText}>{product.notes || 'No notes added.'}</Text>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{t('product.notes')}</Text>
+          <Text style={styles.notesText}>{product.notes || t('product.noNotes')}</Text>
         </View>
 
-        <View style={styles.reminderRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.reminder')} onPress={() => router.push('/(tabs)/more')} style={styles.reminderRow}>
           <Ionicons name="notifications-outline" size={22} color={colors.accent} />
           <View style={styles.rowCopy}>
-            <Text style={styles.value}>Expiry reminder</Text>
-            <Text style={styles.label}>Reminders coming soon</Text>
+            <Text style={styles.value}>{t('product.reminder')}</Text>
+            <Text style={styles.label}>{t('product.manageMore')}</Text>
           </View>
-          <Switch
-            accessibilityLabel="Expiry reminder"
-            value={reminderEnabled}
-            onValueChange={setReminderEnabled}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor={colors.text}
-            ios_backgroundColor={colors.border}
-          />
-        </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
+        </Pressable>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit Product" disabled={busy !== null} onPress={() => router.push({ pathname: '/product/[id]/edit', params: { id: product.id } })} style={({ pressed }) => [styles.editButton, (pressed || busy !== null) && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.edit')} disabled={busy !== null} onPress={() => router.push({ pathname: '/product/[id]/edit', params: { id: product.id } })} style={({ pressed }) => [styles.editButton, (pressed || busy !== null) && styles.pressed]}>
           <Ionicons name="create-outline" size={21} color={colors.background} />
-          <Text style={styles.editText}>Edit Product</Text>
+          <Text style={styles.editText}>{t('product.edit')}</Text>
         </Pressable>
 
         <View style={styles.outcomes}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Consumed" disabled={busy !== null} onPress={() => confirmOutcome('consumed')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('product.markConsumed')} disabled={busy !== null} onPress={() => confirmOutcome('consumed')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
             <Ionicons name="checkmark-circle-outline" size={23} color={colors.fresh} />
-            <Text style={styles.outcomeText}>{busy === 'consumed' ? 'Saving...' : 'Mark as Consumed'}</Text>
+            <Text style={styles.outcomeText}>{busy === 'consumed' ? t('common.saving') : t('product.markConsumed')}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark as Wasted" disabled={busy !== null} onPress={() => confirmOutcome('wasted')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('product.markWasted')} disabled={busy !== null} onPress={() => confirmOutcome('wasted')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
             <Ionicons name="trash-outline" size={23} color={colors.soon} />
-            <Text style={styles.outcomeText}>{busy === 'wasted' ? 'Saving...' : 'Mark as Wasted'}</Text>
+            <Text style={styles.outcomeText}>{busy === 'wasted' ? t('common.saving') : t('product.markWasted')}</Text>
           </Pressable>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Delete Product" disabled={busy !== null} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || busy !== null) && styles.pressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.delete')} disabled={busy !== null} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || busy !== null) && styles.pressed]}>
           <Ionicons name="trash-outline" size={18} color={colors.expired} />
-          <Text style={styles.deleteText}>{busy === 'delete' ? 'Deleting...' : 'Delete Product'}</Text>
+          <Text style={styles.deleteText}>{busy === 'delete' ? t('common.saving') : t('product.delete')}</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -184,7 +183,7 @@ export default function ProductDetailScreen() {
   return <ProductDetails key={product.id} product={product} />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28, gap: 22 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

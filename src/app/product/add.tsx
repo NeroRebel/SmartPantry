@@ -3,20 +3,25 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ProductForm } from '@/components/product-form';
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { filterProductPresets, getPresetFormValues, presetCategories } from '@/data/product-presets';
-import { createProduct } from '@/db/products';
+import { addProduct } from '@/services/product-lifecycle';
 import type { ProductInput } from '@/types/product';
 import type { ProductPreset } from '@/types/product-preset';
+import { categoryLabel } from '@/i18n/format';
 
 type AddMode = 'quick' | 'custom';
 
 function ModeSwitch({ mode, onChange }: { mode: AddMode; onChange: (mode: AddMode) => void }) {
+  const { styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
     <View style={styles.segmented} accessibilityRole="tablist">
-      {([['quick', 'Quick Add'], ['custom', 'Custom Product']] as const).map(([value, label]) => (
+      {([['quick', t('product.quickAdd')], ['custom', t('product.custom')]] as const).map(([value, label]) => (
         <Pressable
           key={value}
           accessibilityRole="tab"
@@ -32,16 +37,20 @@ function ModeSwitch({ mode, onChange }: { mode: AddMode; onChange: (mode: AddMod
 }
 
 function PresetCard({ preset, onPress }: { preset: ProductPreset; onPress: () => void }) {
+  const { styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Add ${preset.name}`} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <Text style={styles.emoji}>{preset.emoji ?? '🥫'}</Text>
       <Text numberOfLines={2} style={styles.cardName}>{preset.name}</Text>
-      <Text numberOfLines={1} style={styles.cardCategory}>{preset.category}</Text>
+      <Text numberOfLines={1} style={styles.cardCategory}>{categoryLabel(preset.category, t)}</Text>
     </Pressable>
   );
 }
 
 export default function AddProductScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const [mode, setMode] = useState<AddMode>('quick');
   const [selectedPreset, setSelectedPreset] = useState<ProductPreset | null>(null);
   const [query, setQuery] = useState('');
@@ -53,7 +62,7 @@ export default function AddProductScreen() {
     setSelectedPreset(null);
   };
   const save = async (input: ProductInput) => {
-    await createProduct(input);
+    await addProduct(input);
     router.dismissTo('/(tabs)/inventory');
   };
 
@@ -61,8 +70,8 @@ export default function AddProductScreen() {
     return (
       <ProductForm
         key={selectedPreset?.id ?? 'custom'}
-        title="Add Product"
-        submitLabel="Add to Pantry"
+        title={t('product.add')}
+        submitLabel={t('product.addToPantry')}
         initialValues={selectedPreset ? getPresetFormValues(selectedPreset) : undefined}
         headerContent={<ModeSwitch mode={mode} onChange={changeMode} />}
         onBack={selectedPreset ? () => setSelectedPreset(null) : goBack}
@@ -86,17 +95,17 @@ export default function AddProductScreen() {
         ListHeaderComponent={
           <View style={styles.headerContent}>
             <View style={styles.header}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={goBack} style={styles.back}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={goBack} style={styles.back}>
                 <Ionicons name="chevron-back" size={24} color={colors.text} />
               </Pressable>
-              <Text accessibilityRole="header" style={styles.title}>Add Product</Text>
+              <Text accessibilityRole="header" style={styles.title}>{t('product.add')}</Text>
             </View>
             <ModeSwitch mode={mode} onChange={changeMode} />
             <View style={styles.search}>
               <Ionicons name="search-outline" size={20} color={colors.secondary} />
               <TextInput
-                accessibilityLabel="Search products"
-                placeholder="Search products..."
+                accessibilityLabel={t('product.search')}
+                placeholder={t('product.search')}
                 placeholderTextColor={colors.secondary}
                 selectionColor={colors.accent}
                 value={query}
@@ -105,30 +114,30 @@ export default function AddProductScreen() {
                 autoCorrect={false}
                 style={styles.searchInput}
               />
-              {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setQuery('')} style={styles.clear}>
+              {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={t('common.searchClear')} onPress={() => setQuery('')} style={styles.clear}>
                 <Ionicons name="close-circle" size={20} color={colors.secondary} />
               </Pressable>}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={styles.filters} contentContainerStyle={styles.filterContent}>
               {['All', ...presetCategories].map((item) => (
                 <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: category === item }} onPress={() => setCategory(item)} style={[styles.chip, category === item && styles.selectedChip]}>
-                  <Text style={[styles.chipText, category === item && styles.selectedChipText]}>{item}</Text>
+                  <Text style={[styles.chipText, category === item && styles.selectedChipText]}>{item === 'All' ? t('common.all') : categoryLabel(item, t)}</Text>
                 </Pressable>
               ))}
             </ScrollView>
             <View style={styles.listHeading}>
-              <Text style={styles.sectionTitle}>Common products</Text>
+              <Text style={styles.sectionTitle}>{t('product.common')}</Text>
               <Text style={styles.count}>{presets.length}</Text>
             </View>
           </View>
         }
-        ListEmptyComponent={<View style={styles.empty}><Ionicons name="search-outline" size={32} color={colors.secondary} /><Text style={styles.emptyTitle}>No products found</Text><Text style={styles.emptyText}>Try another name or category.</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><Ionicons name="search-outline" size={32} color={colors.secondary} /><Text style={styles.emptyTitle}>{t('inventory.noResults')}</Text><Text style={styles.emptyText}>{t('product.searchEmpty')}</Text></View>}
       />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40 },
   headerContent: { marginBottom: 16 },
@@ -137,7 +146,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: colors.text, fontSize: 26, lineHeight: 32, fontWeight: '700' },
   segmented: { flexDirection: 'row', padding: 4, marginTop: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
   segment: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, borderRadius: 9 },
-  selectedSegment: { backgroundColor: '#38251F' },
+  selectedSegment: { backgroundColor: colors.accentSoft },
   segmentText: { color: colors.secondary, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   selectedSegmentText: { color: colors.accent },
   search: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 5, marginTop: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14 },
@@ -146,7 +155,7 @@ const styles = StyleSheet.create({
   filters: { flexGrow: 0, marginTop: 18 },
   filterContent: { gap: 8, paddingBottom: 2 },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 15, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  selectedChip: { backgroundColor: '#FF6B3D20', borderColor: '#FF6B3D66' },
+  selectedChip: { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
   chipText: { color: colors.secondary, fontSize: 12, fontWeight: '600' },
   selectedChipText: { color: colors.accent },
   listHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 16 },

@@ -1,11 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ProductForm } from '@/components/product-form';
 import { ProductLoadState } from '@/components/product-load-state';
-import { getProductById, updateProduct } from '@/db/products';
+import { getProductById } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
+import { editProduct } from '@/services/product-lifecycle';
 
 export default function EditProductScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const productId = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : NaN;
   const load = useCallback(() => Number.isSafeInteger(productId) && productId > 0 ? getProductById(productId) : Promise.resolve(null), [productId]);
@@ -19,12 +22,12 @@ export default function EditProductScreen() {
   return (
     <ProductForm
       key={product.id}
-      title="Edit Product"
-      submitLabel="Save Changes"
+      title={t('product.edit')}
+      submitLabel={t('product.saveChanges')}
       initialProduct={product}
       onBack={() => router.dismissTo(detailRoute)}
       onSubmit={async (input) => {
-        await updateProduct(product.id, input);
+        await editProduct(product.id, input);
         router.dismissTo(detailRoute);
       }}
     />

@@ -2,17 +2,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type ReactNode, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import type { Product, ProductInput } from '@/types/product';
 import { isValidISODate } from '@/utils/product-status';
+import { categoryLabel, storageLabel } from '@/i18n/format';
 
 const choices = {
   category: ['Dairy', 'Meat & Fish', 'Meat', 'Vegetables', 'Fruits', 'Fruit', 'Bakery', 'Drinks', 'Frozen', 'Pantry', 'Other'],
   unit: ['', 'pcs', 'g', 'kg', 'ml', 'L', 'pack'],
   storageLocation: ['', 'Refrigerator', 'Freezer', 'Pantry', 'Other'],
 };
-const choiceLabels = { category: 'Category *', unit: 'Unit', storageLocation: 'Storage Location' };
 
 type Props = {
   title: string;
@@ -25,6 +27,11 @@ type Props = {
 };
 
 export function ProductForm({ title, submitLabel, initialProduct, initialValues, headerContent, onBack, onSubmit }: Props) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
+  const choiceLabels = { category: t('form.category'), unit: t('form.unit'), storageLocation: t('form.storage') };
+  const choiceName = (field: keyof typeof choices, value: string) => field === 'category' ? categoryLabel(value, t)
+    : field === 'storageLocation' ? storageLabel(value, t) : value;
   const [fields, setFields] = useState({
     name: initialProduct?.name ?? initialValues?.name ?? '',
     brand: initialProduct?.brand ?? '',
@@ -46,13 +53,13 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
     const quantityText = fields.quantity.trim().replace(',', '.');
     const quantity = quantityText ? Number(quantityText) : null;
     let validation: string | null = null;
-    if (!fields.name.trim()) validation = 'Please enter a product name.';
-    else if (!fields.category) validation = 'Please choose a category.';
-    else if (!isValidISODate(fields.expirationDate.trim())) validation = 'Enter a valid expiration date as YYYY-MM-DD, for example 2026-10-15.';
-    else if (quantity !== null && (!/^\d+(\.\d+)?$/.test(quantityText) || !Number.isFinite(quantity) || quantity < 0)) validation = 'Enter a quantity of zero or more, such as 1 or 0.5.';
+    if (!fields.name.trim()) validation = t('form.nameRequired');
+    else if (!fields.category) validation = t('form.categoryRequired');
+    else if (!isValidISODate(fields.expirationDate.trim())) validation = t('form.dateInvalid');
+    else if (quantity !== null && (!/^\d+(\.\d+)?$/.test(quantityText) || !Number.isFinite(quantity) || quantity < 0)) validation = t('form.quantityInvalid');
     if (validation) {
       setError(validation);
-      Alert.alert('Check your product', validation);
+      Alert.alert(t('form.checkProduct'), validation);
       return;
     }
     submitting.current = true;
@@ -67,9 +74,9 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
         barcode: initialProduct?.barcode ?? null, imageUrl: initialProduct?.imageUrl ?? null,
       });
     } catch {
-      const message = 'We could not save your product. Your entries are still here. Please try again.';
+      const message = t('form.saveError');
       setError(message);
-      Alert.alert('Unable to save', message);
+      Alert.alert(t('form.unableSave'), message);
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -105,12 +112,12 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
         <Text style={styles.label}>{choiceLabels[field]}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${choiceLabels[field].replace(' *', '')}: ${fields[field] || 'Not selected'}`}
+          accessibilityLabel={`${choiceLabels[field].replace(' *', '')}: ${fields[field] ? choiceName(field, fields[field]) : t('common.notSpecified')}`}
           disabled={saving}
           onPress={() => setMenu(field)}
           style={styles.select}
         >
-          <Text style={[styles.selectText, !fields[field] && styles.muted]}>{fields[field] || 'Select'}</Text>
+          <Text style={[styles.selectText, !fields[field] && styles.muted]}>{fields[field] ? choiceName(field, fields[field]) : t('common.select')}</Text>
           <Ionicons name="chevron-down" size={18} color={colors.secondary} />
         </Pressable>
       </View>
@@ -122,22 +129,22 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} disabled={saving} style={styles.back}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={onBack} disabled={saving} style={styles.back}>
               <Ionicons name="chevron-back" size={24} color={colors.text} />
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           </View>
           {headerContent}
-          {input('name', 'Product Name *', 'e.g. Milk')}
-          {input('brand', 'Brand', 'Brand name')}
+          {input('name', t('form.name'), 'e.g. Milk')}
+          {input('brand', t('form.brand'), t('form.brandHint'))}
           {select('category')}
           <View style={styles.row}>
-            <View style={styles.half}>{input('quantity', 'Quantity', 'e.g. 1')}</View>
+            <View style={styles.half}>{input('quantity', t('form.quantity'), 'e.g. 1')}</View>
             <View style={styles.half}>{select('unit')}</View>
           </View>
-          {input('expirationDate', 'Expiration Date *', 'YYYY-MM-DD')}
+          {input('expirationDate', t('form.expiration'), 'YYYY-MM-DD')}
           {select('storageLocation')}
-          {input('notes', 'Notes', 'Anything to remember?')}
+          {input('notes', t('form.notes'), t('form.notesHint'))}
           {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           <Pressable
             accessibilityRole="button"
@@ -148,7 +155,7 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
             style={({ pressed }) => [styles.submit, (pressed || saving) && styles.dimmed]}
           >
             {saving ? <ActivityIndicator color={colors.background} /> : <Ionicons name="checkmark" size={22} color={colors.background} />}
-            <Text style={styles.submitText}>{saving ? 'Saving...' : submitLabel}</Text>
+            <Text style={styles.submitText}>{saving ? t('common.saving') : submitLabel}</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -157,14 +164,14 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
           <View accessibilityViewIsModal style={styles.menu}>
             <View style={styles.menuHeader}>
               <Text style={styles.menuTitle}>{menu ? choiceLabels[menu].replace(' *', '') : ''}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Close options" onPress={() => setMenu(null)} style={styles.back}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('form.closeOptions')} onPress={() => setMenu(null)} style={styles.back}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView>
               {menu && choices[menu].map((value) => (
-                <Pressable key={value} accessibilityRole="button" accessibilityLabel={value || 'Not specified'} onPress={() => { change(menu, value); setMenu(null); }} style={styles.option}>
-                  <Text style={styles.optionText}>{value || 'Not specified'}</Text>
+                <Pressable key={value} accessibilityRole="button" accessibilityLabel={value ? choiceName(menu, value) : t('common.notSpecified')} onPress={() => { change(menu, value); setMenu(null); }} style={styles.option}>
+                  <Text style={styles.optionText}>{value ? choiceName(menu, value) : t('common.notSpecified')}</Text>
                   {fields[menu] === value && <Ionicons name="checkmark" size={20} color={colors.accent} />}
                 </Pressable>
               ))}
@@ -176,7 +183,7 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', padding: 24, paddingTop: 12, gap: 20 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 },

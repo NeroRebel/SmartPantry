@@ -1,24 +1,26 @@
-import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
-const smartPantryTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: '#050505',
-    card: '#0C0C0F',
-    primary: '#FF5A1F',
-    text: '#FFFFFF',
-    border: '#1C1C20',
-    notification: '#FF3B30',
-  },
-};
+import { restoreProductReminders } from '@/services/notifications';
+import { AppearanceProvider, useAppTheme } from '@/theme/theme-context';
 
-export default function RootLayout() {
+function RootNavigator() {
+  const { colors, mode } = useAppTheme();
+  const base = mode === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme = { ...base, colors: { ...base.colors, background: colors.background,
+    card: colors.surface, primary: colors.accent, text: colors.text, border: colors.border, notification: colors.expired } };
+  useEffect(() => { void restoreProductReminders().catch((error) => {
+    if (__DEV__) console.warn('[SmartPantry] Could not restore reminders:', error);
+  }); }, []);
   return (
-    <ThemeProvider value={smartPantryTheme}>
-      <StatusBar style="light" />
+    <ThemeProvider value={navigationTheme}>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
+}
+
+export default function RootLayout() {
+  return <AppearanceProvider><RootNavigator /></AppearanceProvider>;
 }

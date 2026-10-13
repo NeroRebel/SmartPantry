@@ -3,16 +3,20 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { RecipeCard } from '@/components/recipe-card';
-import { pantryColors as colors } from '@/constants/pantry-theme';
 import { getPantryRecipeMatches } from '@/data/pantry-recipes';
 import { getRecipeCategories, getRecipes } from '@/data/recipes';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { Recipe, RecipeListItem } from '@/types/recipe';
 import { recipeCategories, type RecipeFilter } from '@/utils/recipe-filters';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 
 export default function RecipesScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'pantry' | 'all'>('pantry');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -60,10 +64,10 @@ export default function RecipesScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(Platform.OS === 'ios' ? 86 : 72, insets.bottom) + 36 }]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.title}>Cook with{'\n'}<Text style={styles.accent}>what you have</Text></Text>
-            <Text style={styles.subtitle}>{mode === 'pantry' ? 'Make more of what you already have.' : 'Discover something good to cook.'}</Text>
+            <Text accessibilityRole="header" style={styles.title}>{t('recipes.headline')}{'\n'}<Text style={styles.accent}>{t('recipes.headlineAccent')}</Text></Text>
+            <Text style={styles.subtitle}>{mode === 'pantry' ? t('recipes.pantrySubtitle') : t('recipes.allSubtitle')}</Text>
             <View style={styles.segmented} accessibilityRole="tablist">
-              {([['pantry', 'From My Pantry'], ['all', 'All Recipes']] as const).map(([value, label]) => (
+              {([['pantry', t('recipes.fromPantry')], ['all', t('recipes.allRecipes')]] as const).map(([value, label]) => (
                 <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => setMode(value)} style={({ pressed }) => [styles.segment, mode === value && styles.selectedSegment, pressed && styles.pressed]}>
                   <Text style={[styles.segmentText, mode === value && styles.selectedSegmentText]}>{label}</Text>
                 </Pressable>
@@ -72,35 +76,35 @@ export default function RecipesScreen() {
             {mode === 'all' && <>
               <View style={styles.search}>
                 <Ionicons name="search-outline" size={21} color={colors.secondary} />
-                <TextInput accessibilityLabel="Search recipes" placeholder="Search recipes..." placeholderTextColor={colors.secondary} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} returnKeyType="search" selectionColor={colors.accent} style={styles.searchInput} />
-                {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setQuery('')} style={styles.clearButton}><Ionicons name="close-circle" size={20} color={colors.secondary} /></Pressable>}
+                <TextInput accessibilityLabel={t('recipes.search')} placeholder={t('recipes.search')} placeholderTextColor={colors.secondary} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} returnKeyType="search" selectionColor={colors.accent} style={styles.searchInput} />
+                {query.length > 0 && <Pressable accessibilityRole="button" accessibilityLabel={t('common.searchClear')} onPress={() => setQuery('')} style={styles.clearButton}><Ionicons name="close-circle" size={20} color={colors.secondary} /></Pressable>}
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent} style={styles.filters}>
                 {categories.map((item) => (
                   <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: category === item }} onPress={() => setCategory(item)} style={({ pressed }) => [styles.chip, category === item && styles.selectedChip, pressed && styles.pressed]}>
-                    <Text style={[styles.chipText, category === item && styles.selectedChipText]}>{item}</Text>
+                    <Text style={[styles.chipText, category === item && styles.selectedChipText]}>{item === 'All' ? t('common.all') : t(`category.${item}`, { defaultValue: item })}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
             </>}
             <View style={styles.listHeading}>
-              <Text style={styles.sectionTitle}>{mode === 'pantry' ? 'Best matches' : 'Recipes'}</Text>
-              {!error && !pending && <Text style={styles.count}>{recipes.length} {recipes.length === 1 ? 'recipe' : 'recipes'}</Text>}
+              <Text style={styles.sectionTitle}>{mode === 'pantry' ? t('recipes.bestMatches') : t('nav.recipes')}</Text>
+              {!error && !pending && <Text style={styles.count}>{t('common.recipeCount', { count: recipes.length })}</Text>}
             </View>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             {error ? (
-              <><Text accessibilityRole="header" style={styles.emptyTitle}>Couldn&apos;t load recipes</Text><Text accessibilityRole="alert" style={styles.emptyText}>Check your connection and try again.</Text><Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}><Text style={styles.retryText}>Try Again</Text></Pressable></>
+              <><Text accessibilityRole="header" style={styles.emptyTitle}>{t('recipes.loadError')}</Text><Text accessibilityRole="alert" style={styles.emptyText}>{t('recipes.connectionError')}</Text><Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}><Text style={styles.retryText}>{t('common.tryAgain')}</Text></Pressable></>
             ) : pending ? (
-              <ActivityIndicator color={colors.accent} accessibilityLabel="Loading recipes" />
+              <ActivityIndicator color={colors.accent} accessibilityLabel={t('recipes.loading')} />
             ) : mode === 'pantry' && pantryData?.totalProducts === 0 ? (
-              <><Ionicons name="basket-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>Your pantry is empty</Text><Text style={styles.emptyText}>Add some products to discover recipes you can cook.</Text><Pressable accessibilityRole="button" onPress={() => router.push('/product/add')} style={styles.retryButton}><Text style={styles.retryText}>Add Product</Text></Pressable></>
+              <><Ionicons name="basket-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>{t('recipes.pantryEmpty')}</Text><Text style={styles.emptyText}>{t('recipes.pantryEmptyBody')}</Text><Pressable accessibilityRole="button" onPress={() => router.push('/product/add')} style={styles.retryButton}><Text style={styles.retryText}>{t('inventory.addProduct')}</Text></Pressable></>
             ) : mode === 'pantry' ? (
-              <><Ionicons name="restaurant-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>No matching recipes yet</Text><Text style={styles.emptyText}>Try adding more products to your pantry.</Text><Pressable accessibilityRole="button" onPress={() => router.navigate('/(tabs)/inventory')} style={styles.retryButton}><Text style={styles.retryText}>Open Inventory</Text></Pressable></>
+              <><Ionicons name="restaurant-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>{t('recipes.noMatches')}</Text><Text style={styles.emptyText}>{t('recipes.noMatchesBody')}</Text><Pressable accessibilityRole="button" onPress={() => router.navigate('/(tabs)/inventory')} style={styles.retryButton}><Text style={styles.retryText}>{t('recipes.openInventory')}</Text></Pressable></>
             ) : (
-              <><Ionicons name="restaurant-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>No recipes found</Text><Text style={styles.emptyText}>Try another search or category.</Text></>
+              <><Ionicons name="restaurant-outline" size={38} color={colors.secondary} /><Text style={styles.emptyTitle}>{t('recipes.noResults')}</Text><Text style={styles.emptyText}>{t('recipes.noResultsBody')}</Text></>
             )}
           </View>
         }
@@ -109,7 +113,7 @@ export default function RecipesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 22 },
   header: { marginBottom: 16 },
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.secondary, fontSize: 13, lineHeight: 20, marginTop: 11 },
   segmented: { flexDirection: 'row', padding: 4, marginTop: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
   segment: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, borderRadius: 9 },
-  selectedSegment: { backgroundColor: '#38251F' },
+  selectedSegment: { backgroundColor: colors.accentSoft },
   segmentText: { color: colors.secondary, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   selectedSegmentText: { color: colors.accent },
   search: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 17, paddingRight: 5, marginTop: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16 },
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
   filters: { flexGrow: 0, marginTop: 18 },
   filterContent: { gap: 8, paddingBottom: 2 },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 15, paddingVertical: 11, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  selectedChip: { backgroundColor: '#FF6B3D20', borderColor: '#FF6B3D66' },
+  selectedChip: { backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
   chipText: { color: colors.secondary, fontSize: 12, fontWeight: '600' },
   selectedChipText: { color: colors.accent },
   listHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 25, gap: 12 },

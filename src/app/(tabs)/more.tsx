@@ -1,30 +1,125 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
+import { getNotificationSettings } from '@/db/notification-settings';
+import { useFocusedData } from '@/hooks/use-focused-data';
+import { getNotificationPermissionStatus, setDefaultReminderDays, setNotificationsEnabled } from '@/services/notifications';
+import type { NotificationSettings } from '@/types/notification-settings';
+import { languages } from '@/i18n';
+import { useAppTheme } from '@/theme/theme-context';
 
-export default function MoreScreen() {
-  return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <View style={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>More</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Statistics" onPress={() => router.push('/statistics')} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-          <Ionicons name="bar-chart-outline" size={23} color={colors.accent} />
-          <Text style={styles.rowText}>Statistics</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.secondary} />
-        </Pressable>
-      </View>
-    </SafeAreaView>
-  );
+const timings: { days: NotificationSettings['defaultReminderDays']; key: string }[] = [
+  { days: 0, key: 'timing.sameDay' }, { days: 1, key: 'timing.day1' },
+  { days: 2, key: 'timing.day2' }, { days: 3, key: 'timing.day3' },
+];
+
+function Row({ icon, title, subtitle, value, onPress, trailing }: {
+  icon: keyof typeof Ionicons.glyphMap; title: string; subtitle?: string; value?: string;
+  onPress?: () => void; trailing?: React.ReactNode;
+}) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  return <Pressable accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <View style={styles.icon}><Ionicons name={icon} size={20} color={colors.accent} /></View>
+    <View style={styles.rowCopy}><Text style={styles.rowTitle}>{title}</Text>{subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}</View>
+    {value && <Text style={styles.rowValue}>{value}</Text>}
+    {trailing ?? (onPress ? <Ionicons name="chevron-forward" size={17} color={colors.secondary} /> : null)}
+  </Pressable>;
 }
 
-const styles = StyleSheet.create({
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const { styles } = useThemedStyles(createStyles);
+  return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text><View style={styles.group}>{children}</View></View>;
+}
+
+export default function MoreScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { settings: appearance } = useAppTheme();
+  const { t } = useTranslation();
+  const load = useCallback(async () => {
+    const [settings, permission] = await Promise.all([getNotificationSettings(), getNotificationPermissionStatus()]);
+    return { settings, permission };
+  }, []);
+  const { data, loading, error, reload } = useFocusedData(load);
+  const settings = data?.settings;
+  const [timingOpen, setTimingOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function changeEnabled(enabled: boolean) {
+    if (busy) return;
+    setBusy(true);
+    try { await setNotificationsEnabled(enabled); }
+    catch { Alert.alert(t('more.notificationsUnavailable'), t('more.permissionDenied')); }
+    finally { reload(); setBusy(false); }
+  }
+
+  async function changeTiming(days: NotificationSettings['defaultReminderDays']) {
+    if (busy) return;
+    setTimingOpen(false);
+    setBusy(true);
+    try { await setDefaultReminderDays(days); }
+    catch { Alert.alert(t('more.timingError'), t('common.pleaseTryAgain')); }
+    finally { reload(); setBusy(false); }
+  }
+
+  return <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <Text accessibilityRole="header" style={styles.title}>{t('nav.more')}</Text>
+      <Section title={t('more.activity')}>
+        <Row icon="bar-chart-outline" title={t('statistics.title')} subtitle={t('more.statisticsBody')} onPress={() => router.push('/statistics')} />
+        <Row icon="basket-outline" title={t('shopping.title')} subtitle={t('more.shoppingBody')} onPress={() => router.push('/shopping-list')} />
+      </Section>
+      <Section title={t('more.preferences')}>
+        <Row icon="notifications-outline" title={t('more.notifications')} subtitle={Platform.OS === 'web' ? t('more.webUnavailable') : data?.permission === 'denied' ? t('more.permissionDenied') : t('more.expirationReminders')} trailing={<Switch accessibilityLabel={t('more.notifications')} value={settings?.notificationsEnabled ?? false} disabled={busy || loading || !!error || Platform.OS === 'web'} onValueChange={(value) => void changeEnabled(value)} trackColor={{ false: colors.border, true: colors.accentFill }} thumbColor={colors.text} ios_backgroundColor={colors.border} />} />
+        <Row icon="time-outline" title={t('more.reminderTiming')} value={t(timings.find((item) => item.days === settings?.defaultReminderDays)?.key ?? 'timing.day1')} onPress={() => setTimingOpen(true)} />
+        <Row icon="language-outline" title={t('more.language')} value={languages.find((item) => item.code === appearance.language)?.nativeName ?? 'English'} onPress={() => router.push('/settings/language')} />
+        <Row icon="moon-outline" title={t('more.appearance')} value={`${t(`appearance.${appearance.themeMode}`)} · ${t(`appearance.${appearance.accentColor}`)}${appearance.highContrast ? ` · ${t('appearance.highContrast')}` : ''}`} onPress={() => router.push('/settings/appearance')} />
+      </Section>
+      <Section title={t('more.data')}><Row icon="server-outline" title={t('more.manageData')} subtitle={t('more.manageDataBody')} onPress={() => router.push('/settings/data')} /></Section>
+      <Section title={t('more.about')}>
+        <Row icon="information-circle-outline" title={t('more.aboutApp')} onPress={() => router.push('/about')} />
+        <Row icon="code-slash-outline" title={t('more.version')} value={Constants.expoConfig?.version ?? t('common.unknown')} />
+      </Section>
+      {loading && !settings && <ActivityIndicator color={colors.accent} />}
+      {error && <Pressable onPress={reload} style={styles.retry}><Text style={styles.retryText}>{t('more.settingsError')}</Text></Pressable>}
+    </ScrollView>
+    <Modal visible={timingOpen} transparent animationType="fade" onRequestClose={() => setTimingOpen(false)}>
+      <View style={styles.scrim}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setTimingOpen(false)} accessibilityLabel={t('common.close')} />
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>{t('more.reminderTiming')}</Text>
+          {timings.map((item) => <Pressable key={item.days} accessibilityRole="button" onPress={() => void changeTiming(item.days)} style={styles.timingRow}>
+            <Text style={[styles.timingText, settings?.defaultReminderDays === item.days && styles.timingSelected]}>{t(item.key)}</Text>
+            {settings?.defaultReminderDays === item.days && <Ionicons name="checkmark" size={20} color={colors.accent} />}
+          </Pressable>)}
+          <Pressable onPress={() => setTimingOpen(false)} style={styles.cancel}><Text style={styles.cancelText}>{t('common.cancel')}</Text></Pressable>
+        </View>
+      </View>
+    </Modal>
+  </SafeAreaView>;
+}
+
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 24, gap: 26 },
+  content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 18, paddingBottom: 48, gap: 30 },
   title: { color: colors.text, fontSize: 34, fontWeight: '700' },
-  row: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14 },
-  rowText: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '600' },
-  pressed: { opacity: 0.7 },
+  section: { gap: 12 },
+  sectionTitle: { color: colors.secondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
+  group: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, overflow: 'hidden' },
+  row: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 15, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
+  icon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  rowCopy: { flex: 1, minWidth: 0, gap: 3 }, rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' }, rowSubtitle: { color: colors.secondary, fontSize: 12, lineHeight: 17 },
+  rowValue: { color: colors.secondary, fontSize: 12 }, pressed: { opacity: 0.7 }, retry: { padding: 14 }, retryText: { color: colors.accent },
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000A8' },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 42 },
+  sheetTitle: { color: colors.text, fontSize: 19, fontWeight: '700', marginBottom: 14 },
+  timingRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
+  timingText: { color: colors.text, fontSize: 15 }, timingSelected: { color: colors.accent, fontWeight: '700' },
+  cancel: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 }, cancelText: { color: colors.secondary, fontSize: 15 },
 });

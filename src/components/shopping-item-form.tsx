@@ -2,10 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
-import { pantryColors as colors } from '@/constants/pantry-theme';
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 import { presetCategories } from '@/data/product-presets';
 import type { NewShoppingItem, ShoppingItem } from '@/types/shopping-item';
+import { categoryLabel } from '@/i18n/format';
 
 const units = ['pcs', 'g', 'kg', 'ml', 'L', 'pack'];
 
@@ -14,6 +17,8 @@ export function ShoppingItemForm({ item, onClose, onSave }: {
   onClose: () => void;
   onSave: (input: NewShoppingItem) => Promise<void>;
 }) {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(item?.name ?? '');
   const [quantity, setQuantity] = useState(item?.quantity?.toString() ?? '');
@@ -28,13 +33,13 @@ export function ShoppingItemForm({ item, onClose, onSave }: {
     const numberText = quantity.trim().replace(',', '.');
     const parsedQuantity = numberText ? Number(numberText) : null;
     let message: string | null = null;
-    if (!name.trim()) message = 'Please enter an item name.';
+    if (!name.trim()) message = t('shopping.nameRequired');
     else if (parsedQuantity !== null && (!/^\d+(\.\d+)?$/.test(numberText) || !Number.isFinite(parsedQuantity))) {
-      message = 'Enter a quantity of zero or more, such as 1 or 0.5.';
+      message = t('form.quantityInvalid');
     }
     if (message) {
       setError(message);
-      Alert.alert('Check your item', message);
+      Alert.alert(t('shopping.checkItem'), message);
       return;
     }
     submitting.current = true;
@@ -43,9 +48,9 @@ export function ShoppingItemForm({ item, onClose, onSave }: {
     try {
       await onSave({ name: name.trim(), quantity: parsedQuantity, unit: unit.trim() || null, category: category.trim() || null });
     } catch {
-      const saveError = 'Could not save your item. Please try again.';
+      const saveError = t('shopping.saveError');
       setError(saveError);
-      Alert.alert('Unable to save', saveError);
+      Alert.alert(t('form.unableSave'), saveError);
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -55,44 +60,44 @@ export function ShoppingItemForm({ item, onClose, onSave }: {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={() => { if (!saving) onClose(); }}>
       <View style={styles.overlay}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close item form" disabled={saving} onPress={onClose} style={styles.backdrop} />
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} disabled={saving} onPress={onClose} style={styles.backdrop} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrapper}>
           <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={styles.header}>
-              <Text accessibilityRole="header" style={styles.title}>{item ? 'Edit Item' : 'Add Item'}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Close" disabled={saving} onPress={onClose} style={styles.close}>
+              <Text accessibilityRole="header" style={styles.title}>{item ? t('shopping.edit') : t('shopping.add')}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} disabled={saving} onPress={onClose} style={styles.close}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.fields}>
               <View style={styles.field}>
-                <Text style={styles.label}>Name *</Text>
-                <TextInput accessibilityLabel="Item name" value={name} onChangeText={setName} placeholder="e.g. Milk" placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
+                <Text style={styles.label}>{t('shopping.name')}</Text>
+                <TextInput accessibilityLabel={t('shopping.itemName')} value={name} onChangeText={setName} placeholder={t('form.nameHint')} placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
               </View>
               <View style={styles.row}>
                 <View style={[styles.field, styles.half]}>
-                  <Text style={styles.label}>Quantity</Text>
-                  <TextInput accessibilityLabel="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="e.g. 1" placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
+                  <Text style={styles.label}>{t('form.quantity')}</Text>
+                  <TextInput accessibilityLabel={t('form.quantity')} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder={t('form.quantityHint')} placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
                 </View>
                 <View style={[styles.field, styles.half]}>
-                  <Text style={styles.label}>Unit</Text>
-                  <TextInput accessibilityLabel="Unit" value={unit} onChangeText={setUnit} placeholder="e.g. L" placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
+                  <Text style={styles.label}>{t('form.unit')}</Text>
+                  <TextInput accessibilityLabel={t('form.unit')} value={unit} onChangeText={setUnit} placeholder="e.g. L" placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
                 </View>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.options}>
                 {units.map((choice) => <Pressable key={choice} accessibilityRole="button" accessibilityState={{ selected: unit === choice }} disabled={saving} onPress={() => setUnit(choice)} style={[styles.chip, unit === choice && styles.chipSelected]}><Text style={[styles.chipText, unit === choice && styles.chipTextSelected]}>{choice}</Text></Pressable>)}
               </ScrollView>
               <View style={styles.field}>
-                <Text style={styles.label}>Category</Text>
-                <TextInput accessibilityLabel="Category" value={category} onChangeText={setCategory} placeholder="Optional" placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
+                <Text style={styles.label}>{t('shopping.category')}</Text>
+                <TextInput accessibilityLabel={t('shopping.category')} value={category} onChangeText={setCategory} placeholder={t('common.optional')} placeholderTextColor={colors.secondary} selectionColor={colors.accent} editable={!saving} style={styles.input} />
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.options}>
-                {presetCategories.map((choice) => <Pressable key={choice} accessibilityRole="button" accessibilityState={{ selected: category === choice }} disabled={saving} onPress={() => setCategory(choice)} style={[styles.chip, category === choice && styles.chipSelected]}><Text style={[styles.chipText, category === choice && styles.chipTextSelected]}>{choice}</Text></Pressable>)}
+                {presetCategories.map((choice) => <Pressable key={choice} accessibilityRole="button" accessibilityState={{ selected: category === choice }} disabled={saving} onPress={() => setCategory(choice)} style={[styles.chip, category === choice && styles.chipSelected]}><Text style={[styles.chipText, category === choice && styles.chipTextSelected]}>{categoryLabel(choice, t)}</Text></Pressable>)}
               </ScrollView>
               {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
               <Pressable accessibilityRole="button" disabled={saving} onPress={() => void submit()} style={({ pressed }) => [styles.submit, (saving || pressed) && styles.dimmed]}>
                 {saving ? <ActivityIndicator color={colors.background} /> : <Ionicons name="checkmark" size={21} color={colors.background} />}
-                <Text style={styles.submitText}>{saving ? 'Saving...' : item ? 'Save Changes' : 'Add Item'}</Text>
+                <Text style={styles.submitText}>{saving ? t('common.saving') : item ? t('product.saveChanges') : t('shopping.add')}</Text>
               </Pressable>
             </ScrollView>
           </View>
@@ -102,7 +107,7 @@ export function ShoppingItemForm({ item, onClose, onSave }: {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#000000AA' },
   backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   sheetWrapper: { width: '100%' },
@@ -118,7 +123,7 @@ const styles = StyleSheet.create({
   half: { flex: 1, minWidth: 0 },
   options: { gap: 8 },
   chip: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
-  chipSelected: { borderColor: colors.accent, backgroundColor: '#FF6B3D20' },
+  chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   chipText: { color: colors.secondary, fontSize: 12, fontWeight: '600' },
   chipTextSelected: { color: colors.accent },
   error: { color: colors.expired, fontSize: 13 },

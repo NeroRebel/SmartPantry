@@ -3,15 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { getProductStats } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { ProductStats } from '@/types/product';
-
-const colors = {
-  background: '#050505', surface: '#141416', border: '#252528', white: '#FFFFFF',
-  secondary: '#99999F', orange: '#FF6B3D', red: '#FF625C', yellow: '#FFBE55', green: '#68D8A0',
-};
+import { useThemedStyles } from '@/theme/theme-context';
+import type { AppColors } from '@/theme/theme';
 
 const emptyStats: ProductStats = { total: 0, fresh: 0, expiringSoon: 0, expired: 0 };
 
@@ -20,16 +18,18 @@ function openInventory() {
 }
 
 export default function HomeScreen() {
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data, loading, error, reload } = useFocusedData(getProductStats);
   const stats = data ?? emptyStats;
   const pantryStatus = [
-    { label: 'Expired', overviewLabel: 'Expired', count: stats.expired, color: colors.red, icon: 'alert-circle-outline' },
-    { label: 'Soon', overviewLabel: 'Expiring soon', count: stats.expiringSoon, color: colors.yellow, icon: 'time-outline' },
-    { label: 'Good', overviewLabel: 'Fresh', count: stats.fresh, color: colors.green, icon: 'checkmark-circle-outline' },
+    { label: t('common.expired'), overviewLabel: t('common.expired'), count: stats.expired, color: colors.red, icon: 'alert-circle-outline' },
+    { label: t('home.soon'), overviewLabel: t('common.soon'), count: stats.expiringSoon, color: colors.yellow, icon: 'time-outline' },
+    { label: t('common.good'), overviewLabel: t('common.fresh'), count: stats.fresh, color: colors.green, icon: 'checkmark-circle-outline' },
   ] as const;
-  const heroCount = stats.total === 0 ? 'Pantry is empty' : stats.expiringSoon === 0 ? 'All good' : `${stats.expiringSoon} ${stats.expiringSoon === 1 ? 'item' : 'items'}`;
-  const heroTitle = stats.total === 0 ? 'Add your first product' : stats.expiringSoon === 0 ? 'No items expiring soon' : 'expiring soon';
+  const heroCount = stats.total === 0 ? t('home.pantryEmpty') : stats.expiringSoon === 0 ? t('home.allGood') : `${stats.expiringSoon} ${t('common.item', { count: stats.expiringSoon })}`;
+  const heroTitle = stats.total === 0 ? t('home.addFirst') : stats.expiringSoon === 0 ? t('home.noExpiring') : t('home.expiringSoon');
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -43,36 +43,36 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.greeting}>Good morning,</Text>
+            <Text style={styles.greeting}>{t('home.greeting')}</Text>
             <Text accessibilityRole="header" style={styles.headline}>
-              {"Let's make\n"}
-              <Text style={styles.accent}>food count.</Text>
+              {t('home.headline')}{'\n'}
+              <Text style={styles.accent}>{t('home.headlineAccent')}</Text>
             </Text>
           </View>
-          <View accessible accessibilityLabel="Profile avatar placeholder" style={styles.avatar}>
+          <View accessible accessibilityLabel={t('home.profile')} style={styles.avatar}>
             <Ionicons name="person-outline" size={23} color={colors.white} />
           </View>
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Search your pantry"
+          accessibilityLabel={t('home.search')}
           onPress={openInventory}
           style={({ pressed }) => [styles.search, pressed && styles.pressed]}
         >
           <Ionicons name="search-outline" size={21} color={colors.secondary} />
-          <Text style={styles.searchPlaceholder}>Search your pantry...</Text>
+          <Text style={styles.searchPlaceholder}>{t('home.search')}</Text>
         </Pressable>
 
         {error ? (
           <View style={styles.loadMessage}>
             <Text accessibilityRole="alert" style={styles.loadMessageText}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}>
-              <Text style={styles.retryText}>Try Again</Text>
+              <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
             </Pressable>
           </View>
         ) : loading && !data ? (
-          <ActivityIndicator color={colors.orange} accessibilityLabel="Loading pantry overview" />
+          <ActivityIndicator color={colors.orange} accessibilityLabel={t('home.overview')} />
         ) : null}
 
         <Pressable
@@ -82,7 +82,7 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.hero, pressed && styles.pressed]}
         >
           <LinearGradient
-            colors={['#AE2E2C', '#D6412D', '#EF7135']}
+            colors={colors.heroGradient}
             start={{ x: 0, y: 1 }}
             end={{ x: 1, y: 0 }}
             style={styles.heroContent}
@@ -90,13 +90,13 @@ export default function HomeScreen() {
             <View style={styles.heroCopy}>
               <View style={styles.heroEyebrow}>
                 <Ionicons name="time-outline" size={15} color="#FFE2D6" />
-                <Text style={styles.heroEyebrowText}>{stats.expiringSoon > 0 ? 'USE THEM FIRST' : 'PANTRY UPDATE'}</Text>
+                <Text style={styles.heroEyebrowText}>{stats.expiringSoon > 0 ? t('home.useFirst') : t('home.pantryUpdate')}</Text>
               </View>
               <Text style={[styles.heroCount, stats.total === 0 && styles.heroEmptyCount]}>{heroCount}</Text>
               <Text style={styles.heroTitle}>{heroTitle}</Text>
               <View style={styles.heroAction}>
-                <Text style={styles.heroActionText}>{stats.total === 0 ? 'Open inventory' : 'View items'}</Text>
-                <Ionicons name="arrow-forward" size={17} color={colors.white} />
+                <Text style={styles.heroActionText}>{stats.total === 0 ? t('home.openInventory') : t('home.viewItems')}</Text>
+                <Ionicons name="arrow-forward" size={17} color={colors.heroText} />
               </View>
             </View>
             <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.foodArt}>
@@ -118,20 +118,20 @@ export default function HomeScreen() {
 
         <View style={styles.overview}>
           <View style={styles.sectionHeader}>
-            <Text accessibilityRole="header" style={styles.sectionTitle}>Pantry Overview</Text>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>{t('home.overview')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="See all pantry items"
+              accessibilityLabel={t('home.seeAll')}
               onPress={openInventory}
               style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
             >
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={styles.seeAllText}>{t('home.seeAll')}</Text>
               <Ionicons name="chevron-forward" size={14} color={colors.orange} />
             </Pressable>
           </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalCount}>{stats.total}</Text>
-            <Text style={styles.totalLabel}>total {stats.total === 1 ? 'item' : 'items'}</Text>
+            <Text style={styles.totalLabel}>{t('home.totalItems', { count: stats.total })}</Text>
           </View>
           <View accessible accessibilityLabel={`Pantry breakdown: ${stats.expired} expired, ${stats.expiringSoon} expiring soon, ${stats.fresh} fresh`} style={styles.breakdownBar}>
             {pantryStatus.filter((status) => status.count > 0).map((status) => (
@@ -152,34 +152,34 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Scan Product"
+          accessibilityLabel={t('home.scanProduct')}
           onPress={() => router.navigate('/(tabs)/scan')}
           style={({ pressed }) => [styles.scanButton, pressed && styles.pressed]}
         >
           <Ionicons name="scan-outline" size={24} color={colors.background} />
-          <Text style={styles.scanButtonText}>Scan Product</Text>
+          <Text style={styles.scanButtonText}>{t('home.scanProduct')}</Text>
         </Pressable>
 
         <View style={styles.quickActions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Find Recipes. Cook with what you have"
+            accessibilityLabel={`${t('home.findRecipes')}. ${t('home.cookWith')}`}
             onPress={() => router.navigate('/(tabs)/recipes')}
             style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}
           >
             <Ionicons name="restaurant-outline" size={26} color={colors.orange} />
-            <Text style={styles.quickTitle}>Find Recipes</Text>
-            <Text style={styles.quickSubtitle}>Cook with what you have</Text>
+            <Text style={styles.quickTitle}>{t('home.findRecipes')}</Text>
+            <Text style={styles.quickSubtitle}>{t('home.cookWith')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Shopping List. Never forget essentials"
+            accessibilityLabel={`${t('home.shoppingList')}. ${t('home.shoppingSubtitle')}`}
             onPress={() => router.push('/shopping-list')}
             style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}
           >
             <Ionicons name="basket-outline" size={26} color={colors.yellow} />
-            <Text style={styles.quickTitle}>Shopping List</Text>
-            <Text style={styles.quickSubtitle}>Never forget essentials</Text>
+            <Text style={styles.quickTitle}>{t('home.shoppingList')}</Text>
+            <Text style={styles.quickSubtitle}>{t('home.shoppingSubtitle')}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -187,7 +187,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 22, gap: 20 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
@@ -204,14 +204,14 @@ const styles = StyleSheet.create({
   retryText: { color: colors.orange, fontSize: 12, fontWeight: '600' },
   hero: { borderRadius: 24, overflow: 'hidden' },
   heroContent: { minHeight: 194, flexDirection: 'row', alignItems: 'center', padding: 22, gap: 8 },
-  heroCopy: { flex: 1, zIndex: 1 },
+  heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
   heroEyebrow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
-  heroEyebrowText: { color: '#FFE2D6', fontSize: 10, fontWeight: '700' },
-  heroCount: { color: colors.white, fontSize: 34, lineHeight: 40, fontWeight: '700' },
+  heroEyebrowText: { color: colors.heroText, fontSize: 10, fontWeight: '700' },
+  heroCount: { color: colors.heroText, fontSize: 34, lineHeight: 40, fontWeight: '700' },
   heroEmptyCount: { fontSize: 28, lineHeight: 34 },
-  heroTitle: { color: colors.white, fontSize: 20, lineHeight: 26, fontWeight: '500' },
+  heroTitle: { color: colors.heroText, fontSize: 20, lineHeight: 26, fontWeight: '500' },
   heroAction: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 17 },
-  heroActionText: { color: colors.white, fontSize: 12, fontWeight: '600' },
+  heroActionText: { color: colors.heroText, fontSize: 12, fontWeight: '600' },
   foodArt: { width: 85, height: 120, alignItems: 'center', justifyContent: 'center' },
   foodIcon: { transform: [{ rotate: '16deg' }] },
   leafIcon: { position: 'absolute', top: 0, right: 0, transform: [{ rotate: '-25deg' }] },
