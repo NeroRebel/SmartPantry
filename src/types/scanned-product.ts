@@ -9,3 +9,5 @@ export interface ScannedProduct {
   quantity: number | null;
   unit: string | null;
 }
+
+export type ProductSearchResult = Omit<ScannedProduct, 'barcode'> & { barcode: string | null };

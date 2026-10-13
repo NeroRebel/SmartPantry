@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { lookupBarcode } from '@/api/open-food-facts';
 import { ProductForm } from '@/components/product-form';
+import { getProductSelection } from '@/data/scanned-product-review';
 import { getProducts } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import { addProduct } from '@/services/product-lifecycle';
@@ -16,20 +17,22 @@ import type { ProductInput } from '@/types/product';
 import { findBarcodeProduct, isValidBarcode, scannedProductFormValues } from '@/utils/scanned-product';
 
 export default function ScannedProductScreen() {
-  const { barcode: param } = useLocalSearchParams<{ barcode?: string | string[] }>();
+  const { barcode: param, selection: selectionParam } = useLocalSearchParams<{ barcode?: string | string[]; selection?: string | string[] }>();
   const barcode = (Array.isArray(param) ? param[0] : param) ?? '';
+  const selection = Array.isArray(selectionParam) ? selectionParam[0] : selectionParam;
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
   const [acceptedDuplicate, setAcceptedDuplicate] = useState<number | null>(null);
   const load = useCallback(async () => {
     if (!isValidBarcode(barcode)) throw new Error('Invalid barcode');
-    const [product, products] = await Promise.all([lookupBarcode(barcode), getProducts()]);
+    const [product, products] = await Promise.all([selection ? Promise.resolve(getProductSelection(selection, barcode)) : lookupBarcode(barcode), getProducts()]);
     return { product, existing: findBarcodeProduct(products, barcode) };
-  }, [barcode]);
+  }, [barcode, selection]);
   const { data, loading, error, reload } = useFocusedData(load);
   const back = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/scan');
   const manual = () => router.replace({ pathname: '/product/add', params: { mode: 'custom', ...(isValidBarcode(barcode) ? { barcode } : {}) } });
+  const search = () => router.push({ pathname: '/product/search', params: { barcode } });
   const button = (label: string, onPress: () => void) => <Pressable accessibilityRole="button" style={styles.button} onPress={onPress}><Text style={styles.buttonText}>{label}</Text></Pressable>;
   const product = data?.product;
   const existing = data?.existing;
@@ -38,16 +41,17 @@ export default function ScannedProductScreen() {
     return <SafeAreaView style={styles.screen}><View style={styles.state}>
       {loading && !data ? <ActivityIndicator size="large" color={colors.accent} /> : error ? <>
         <Text style={styles.title}>{t('scan.lookupError')}</Text><Text style={styles.secondary}>{t('scan.errorBody')}</Text>
-        {button(t('common.retry'), reload)}{button(t('scan.addManually'), manual)}
+        {button(t('common.retry'), reload)}{isValidBarcode(barcode) && button(t('scan.searchByName'), search)}{button(t('scan.addManually'), manual)}
       </> : existing && acceptedDuplicate !== existing.id ? <>
         <Ionicons name="basket-outline" size={48} color={colors.warning} />
         <Text style={styles.title}>{t('scan.duplicate')}</Text><Text style={styles.secondary}>{existing.name}</Text>
+        {!product && button(t('scan.searchByName'), search)}
         {button(t('scan.addAnother'), () => product ? setAcceptedDuplicate(existing.id) : manual())}
         {button(t('scan.viewExisting'), () => router.replace({ pathname: '/product/[id]', params: { id: existing.id } }))}
       </> : !product ? <>
-        <Text style={styles.title}>{t('scan.notFound')}</Text><Text style={styles.secondary}>{t('scan.notFoundBody')}</Text>{button(t('scan.createManually'), manual)}
+        <Text style={styles.title}>{t('scan.notFound')}</Text><Text style={styles.secondary}>{t('scan.notFoundBody')}</Text>{button(t('scan.searchByName'), search)}{button(t('scan.createManually'), manual)}
       </> : null}
-      {button(t(loading || existing ? 'common.cancel' : 'scan.again'), back)}
+      {button(t(loading || existing ? 'common.cancel' : 'scan.again'), loading || existing ? back : () => router.dismissTo('/(tabs)/scan'))}
     </View></SafeAreaView>;
   }
 
@@ -56,9 +60,10 @@ export default function ScannedProductScreen() {
     router.replace({ pathname: '/product/[id]', params: { id } });
   }
 
-  return <ProductForm key={barcode} title={t('scan.review')} submitLabel={t('product.addToPantry')}
+  return <ProductForm key={`${barcode}-${selection ?? 'direct'}`} title={t('scan.review')} submitLabel={t('product.addToPantry')}
     initialValues={scannedProductFormValues(product)} onBack={back} onSubmit={save}
     headerContent={<View style={styles.preview}>
+      {selection && <Text style={styles.matched}>{t('scan.matchedByName')}</Text>}
       {product.imageUrl && !imageFailed ? <Image source={{ uri: product.imageUrl }} onError={() => setImageFailed(true)} style={styles.image} resizeMode="contain" accessibilityLabel={product.name} />
         : <View style={styles.placeholder}><Ionicons name="nutrition-outline" size={48} color={colors.accent} /></View>}
       <Text style={styles.secondary}>{t('scan.barcode')}: {product.barcode}</Text>
@@ -80,5 +85,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   image: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#FFFFFF' },
   placeholder: { height: 100, justifyContent: 'center' },
   grade: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  matched: { color: colors.warning, fontSize: 14, fontWeight: '600', textAlign: 'center' },
   attribution: { color: colors.secondary, fontSize: 12, textAlign: 'center' },
 });

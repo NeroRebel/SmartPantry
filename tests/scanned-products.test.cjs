@@ -128,6 +128,90 @@ test('all scanner UI keys have translations in all five languages', () => {
   for (const language of ['sk', 'ru', 'uk', 'hu']) assert.deepEqual(Object.keys(translations[language]).sort(), keys);
 });
 
+test('search mapper reuses product mapping, handles brand arrays, ranks and skips unusable hits', () => {
+  const results = api.mapOpenFoodFactsSearchResponse({ products: [
+    null, [], 'invalid', { code: '12345678' },
+    { code: '12345678', product_name: 'Fanta Mango', brands: ['Fanta'], quantity: '500 ml', categories_tags: ['en:plant-based-foods-and-beverages', 'en:beverages'], image_front_url: 'https://images.openfoodfacts.org/fanta.jpg' },
+    { code: '12345678', product_name: 'Duplicate' },
+    { product_name_en: 'Mango drink', brands: ['Fanta', null, 'Company'], image_url: 'https://images.openfoodfacts.org/drink.jpg' },
+    { product_name: 'Fanta Mango', brands: 'Fanta' },
+  ] }, 'Fanta Mango');
+  assert.equal(results.length, 3);
+  assert.equal(results[0].name, 'Fanta Mango');
+  assert.equal(results[0].category, 'Drinks');
+  assert.equal(results[0].quantity, 500);
+  assert.equal(results[0].unit, 'ml');
+  assert.equal(results[2].brand, 'Fanta, Company');
+  assert.equal(results[2].barcode, null);
+  assert.equal(results[2].imageUrl, 'https://images.openfoodfacts.org/drink.jpg');
+  assert.deepEqual(api.mapOpenFoodFactsSearchResponse({ products: [] }, 'Nothing'), []);
+  for (const payload of [null, {}, { products: null }, { products: {} }, { products: [], timed_out: true }]) assert.throws(() => api.mapOpenFoodFactsSearchResponse(payload, 'Milk'));
+});
+
+test('fallback selection preserves original barcode through review, form values and duplicate detection', () => {
+  const candidate = { ...api.mapOpenFoodFactsProduct({ product_name: 'Fanta Mango', quantity: '1 L' }, '12345678') };
+  const selected = utils.selectFallbackProduct(candidate, code);
+  assert.equal(selected.barcode, code);
+  assert.equal(candidate.barcode, '12345678');
+  assert.equal(utils.scannedProductFormValues(selected).barcode, code);
+  assert.equal(utils.scannedProductFormValues(selected).expirationDate, undefined);
+  assert.equal(utils.findBarcodeProduct([{ id: 4, barcode: code }], selected.barcode).id, 4);
+  const handoff = load('data/scanned-product-review.ts');
+  const key = handoff.rememberProductSelection(candidate, code);
+  assert.equal(handoff.getProductSelection(key, code).barcode, code);
+  assert.throws(() => handoff.getProductSelection(key, '87654321'));
+  assert.throws(() => handoff.getProductSelection('lost-session', code));
+  assert.throws(() => utils.selectFallbackProduct(candidate, 'invalid'));
+});
+
+test('name search uses bounded full-text requests and caches mapped results', async (context) => {
+  context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 100000 });
+  const search = modules({ 'expo-constants': { default: {} }, 'react-native': { Platform: { OS: 'web' } } })('api/open-food-facts.ts');
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls++;
+    assert.match(url, /world.openfoodfacts.org\/cgi\/search.pl/);
+    assert.match(url, /search_terms=Fanta%20Mango/);
+    assert.match(url, /page_size=20/);
+    assert.match(url, /image_front_url/);
+    assert.equal(options.headers['User-Agent'], undefined);
+    return { ok: true, json: async () => ({ products: [{ product_name: 'Fanta Mango', brands: ['Fanta'] }] }) };
+  });
+  assert.deepEqual(await search.searchProducts('ab'), []);
+  assert.equal((await search.searchProducts('Fanta Mango'))[0].name, 'Fanta Mango');
+  await search.searchProducts('  Fanta   Mango ');
+  assert.equal(calls, 1);
+  context.mock.method(globalThis, 'fetch', async () => { throw new Error('offline'); });
+  context.mock.timers.tick(6500);
+  await assert.rejects(search.searchProducts('Tiger BubbleGum'));
+  context.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 503 }));
+  context.mock.timers.tick(6500);
+  await assert.rejects(search.searchProducts('Monster Mango'));
+  context.mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => ({ products: null }) }));
+  context.mock.timers.tick(6500);
+  await assert.rejects(search.searchProducts('Coca Cola Zero'));
+});
+
+test('search rate limit delays new requests and cancellation removes stale queued searches', async (context) => {
+  context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 100000 });
+  const search = modules({ 'expo-constants': { default: {} }, 'react-native': { Platform: { OS: 'web' } } })('api/open-food-facts.ts');
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async () => { calls++; return { ok: true, json: async () => ({ products: [] }) }; });
+  await search.searchProducts('First');
+  const controller = new AbortController();
+  const cancelled = assert.rejects(search.searchProducts('Second', controller.signal), /cancelled/);
+  controller.abort();
+  await cancelled;
+  assert.equal(calls, 1);
+  const queued = search.searchProducts('Third');
+  context.mock.timers.tick(6499);
+  await Promise.resolve();
+  assert.equal(calls, 1);
+  context.mock.timers.tick(1);
+  await queued;
+  assert.equal(calls, 2);
+});
+
 test('scanned products save as normal SQLite products, preserve barcode/image, and permit duplicates', async () => {
   const connection = new DatabaseSync(':memory:');
   const db = {

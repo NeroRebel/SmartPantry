@@ -1,5 +1,9 @@
 export const scannerTranslations = {
   en: {
+    'scan.searchByName': 'Search by Name', 'scan.searchTitle': 'Search Product',
+    'scan.searchPlaceholder': 'Search by product name or brand…', 'scan.searchEmpty': 'No products found',
+    'scan.searchError': "Couldn't search products", 'scan.searchHint': 'Enter at least 3 characters',
+    'scan.matchedByName': 'Product matched by name. Please review the details.',
     'scan.title': 'Scan Product', 'scan.lookingUp': 'Looking up product…',
     'scan.notFound': 'Product not found', 'scan.notFoundBody': "We couldn't find this barcode in Open Food Facts.",
     'scan.invalid': 'Invalid barcode', 'scan.invalidBody': 'Enter an 8, 12, 13 or 14-digit numeric barcode.',
@@ -19,6 +23,10 @@ export const scannerTranslations = {
     'scan.source': 'Product data: Open Food Facts (ODbL)',
   },
   sk: {
+    'scan.searchByName': 'Hľadať podľa názvu', 'scan.searchTitle': 'Vyhľadať produkt',
+    'scan.searchPlaceholder': 'Hľadať podľa názvu alebo značky…', 'scan.searchEmpty': 'Žiadne produkty sa nenašli',
+    'scan.searchError': 'Produkty sa nepodarilo vyhľadať', 'scan.searchHint': 'Zadajte aspoň 3 znaky',
+    'scan.matchedByName': 'Produkt nájdený podľa názvu. Skontrolujte údaje.',
     'scan.title': 'Naskenovať produkt', 'scan.lookingUp': 'Vyhľadávam produkt…',
     'scan.notFound': 'Produkt sa nenašiel', 'scan.notFoundBody': 'Tento čiarový kód sme v Open Food Facts nenašli.',
     'scan.invalid': 'Neplatný čiarový kód', 'scan.invalidBody': 'Zadajte číselný kód s 8, 12, 13 alebo 14 číslicami.',
@@ -38,6 +46,10 @@ export const scannerTranslations = {
     'scan.source': 'Údaje o produkte: Open Food Facts (ODbL)',
   },
   ru: {
+    'scan.searchByName': 'Поиск по названию', 'scan.searchTitle': 'Поиск продукта',
+    'scan.searchPlaceholder': 'Название продукта или бренд…', 'scan.searchEmpty': 'Продукты не найдены',
+    'scan.searchError': 'Не удалось найти продукты', 'scan.searchHint': 'Введите минимум 3 символа',
+    'scan.matchedByName': 'Продукт подобран по названию. Проверьте данные.',
     'scan.title': 'Сканировать продукт', 'scan.lookingUp': 'Ищем продукт…',
     'scan.notFound': 'Продукт не найден', 'scan.notFoundBody': 'Этот штрихкод не найден в Open Food Facts.',
     'scan.invalid': 'Неверный штрихкод', 'scan.invalidBody': 'Введите числовой штрихкод из 8, 12, 13 или 14 цифр.',
@@ -57,6 +69,10 @@ export const scannerTranslations = {
     'scan.source': 'Данные о продукте: Open Food Facts (ODbL)',
   },
   uk: {
+    'scan.searchByName': 'Пошук за назвою', 'scan.searchTitle': 'Пошук продукту',
+    'scan.searchPlaceholder': 'Назва продукту або бренд…', 'scan.searchEmpty': 'Продуктів не знайдено',
+    'scan.searchError': 'Не вдалося знайти продукти', 'scan.searchHint': 'Введіть щонайменше 3 символи',
+    'scan.matchedByName': 'Продукт підібрано за назвою. Перевірте дані.',
     'scan.title': 'Сканувати продукт', 'scan.lookingUp': 'Шукаємо продукт…',
     'scan.notFound': 'Продукт не знайдено', 'scan.notFoundBody': 'Цей штрихкод не знайдено в Open Food Facts.',
     'scan.invalid': 'Неправильний штрихкод', 'scan.invalidBody': 'Введіть числовий штрихкод із 8, 12, 13 або 14 цифр.',
@@ -76,6 +92,10 @@ export const scannerTranslations = {
     'scan.source': 'Дані про продукт: Open Food Facts (ODbL)',
   },
   hu: {
+    'scan.searchByName': 'Keresés név alapján', 'scan.searchTitle': 'Termék keresése',
+    'scan.searchPlaceholder': 'Keresés terméknév vagy márka alapján…', 'scan.searchEmpty': 'Nincs találat',
+    'scan.searchError': 'Nem sikerült termékeket keresni', 'scan.searchHint': 'Adjon meg legalább 3 karaktert',
+    'scan.matchedByName': 'Név alapján talált termék. Ellenőrizze az adatokat.',
     'scan.title': 'Termék beolvasása', 'scan.lookingUp': 'Termék keresése…',
     'scan.notFound': 'A termék nem található', 'scan.notFoundBody': 'Ez a vonalkód nem található az Open Food Facts adatbázisában.',
     'scan.invalid': 'Érvénytelen vonalkód', 'scan.invalidBody': 'Adjon meg egy 8, 12, 13 vagy 14 számjegyű vonalkódot.',

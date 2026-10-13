@@ -1,5 +1,10 @@
 import type { Product } from '@/types/product';
-import type { ScannedProduct } from '@/types/scanned-product';
+import type { ProductSearchResult, ScannedProduct } from '@/types/scanned-product';
+
+export function selectFallbackProduct(result: ProductSearchResult, originalBarcode: string): ScannedProduct {
+  if (!isValidBarcode(originalBarcode)) throw new Error('Invalid original barcode');
+  return { ...result, barcode: originalBarcode.trim() };
+}
 
 export function isValidBarcode(value: string): boolean {
   return /^(?:\d{8}|\d{12,14})$/.test(value.trim());
@@ -38,7 +43,8 @@ export function mapFoodCategory(tags: string[], categories = ''): string {
     [/\b(pastas?|rice|flour|sugar|cereals?)\b/, 'Pantry'],
   ];
   // Explicit plant substitutes should not become Dairy based on "milk" alone.
-  if (labels.some((label) => /\b(plant based|plant milk|milk alternatives)\b/.test(label))) return 'Other';
+  if (labels.some((label) => /\b(plant milk|milk alternatives)\b/.test(label))
+    || (labels.some((label) => /\bplant based\b/.test(label)) && labels.some((label) => /\bmilks?\b/.test(label)))) return 'Other';
   for (const [pattern, category] of rules) if (labels.some((label) => pattern.test(label))) return category;
   return 'Other';
 }

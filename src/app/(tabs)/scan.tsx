@@ -44,6 +44,7 @@ export default function ScanScreen() {
     active.current = true;
     setFocused(true);
     setState('ready');
+    setManual(Platform.OS === 'web');
     locked.current = false;
     if (Platform.OS !== 'web') void getPermission().catch(() => setPermissionFailed(true));
     return () => {
@@ -63,7 +64,7 @@ export default function ScanScreen() {
     return () => subscription.remove();
   }, [getPermission]);
 
-  const reset = () => { request.current?.abort(); locked.current = false; setState('ready'); setTorch(false); setCameraFailed(false); };
+  const reset = () => { request.current?.abort(); locked.current = false; setState('ready'); setManual(Platform.OS === 'web'); setTorch(false); setCameraFailed(false); };
   async function lookup(value: string) {
     if (locked.current || !active.current) return;
     const code = value.trim();
@@ -102,7 +103,8 @@ export default function ScanScreen() {
           <Text style={styles.stateTitle}>{t(state === 'notFound' ? 'scan.notFound' : state === 'invalid' ? 'scan.invalid' : 'scan.lookupError')}</Text>
           <Text style={styles.secondary}>{t(state === 'notFound' ? 'scan.notFoundBody' : state === 'invalid' ? 'scan.invalidBody' : 'scan.errorBody')}</Text>
           {state === 'error' && <ScanAction label={t('common.retry')} onPress={() => { locked.current = false; void lookup(barcode); }} primary icon="refresh" />}
-          <ScanAction label={t('scan.createManually')} onPress={() => custom(barcode)} primary={state === 'notFound'} icon="create-outline" />
+          {(state === 'notFound' || state === 'error') && <ScanAction label={t('scan.searchByName')} onPress={() => router.push({ pathname: '/product/search', params: { barcode } })} primary={state === 'notFound'} icon="search-outline" />}
+          <ScanAction label={t('scan.createManually')} onPress={() => custom(barcode)} icon="create-outline" />
         </View> : <>
           {cameraVisible ? <View style={styles.preview}>
             <CameraView style={StyleSheet.absoluteFill} facing="back" enableTorch={torch}
