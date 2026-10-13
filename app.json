@@ -7,6 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "smartpantry",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "en": "./assets/locales/en.json",
+      "sk": "./assets/locales/sk.json",
+      "ru": "./assets/locales/ru.json",
+      "uk": "./assets/locales/uk.json",
+      "hu": "./assets/locales/hu.json"
+    },
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -34,7 +41,13 @@
         }
       ],
       "expo-sqlite",
-      "expo-localization"
+      "expo-localization",
+      ["expo-camera", {
+        "cameraPermission": "Allow SmartPantry to use your camera to scan food product barcodes.",
+        "microphonePermission": false,
+        "recordAudioAndroid": false,
+        "barcodeScannerEnabled": true
+      }]
     ],
     "experiments": {
       "typedRoutes": true,

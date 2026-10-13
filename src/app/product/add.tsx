@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,7 +51,8 @@ function PresetCard({ preset, onPress }: { preset: ProductPreset; onPress: () =>
 export default function AddProductScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
-  const [mode, setMode] = useState<AddMode>('quick');
+  const params = useLocalSearchParams<{ mode?: string; barcode?: string }>();
+  const [mode, setMode] = useState<AddMode>(params.mode === 'custom' ? 'custom' : 'quick');
   const [selectedPreset, setSelectedPreset] = useState<ProductPreset | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
@@ -72,7 +73,7 @@ export default function AddProductScreen() {
         key={selectedPreset?.id ?? 'custom'}
         title={t('product.add')}
         submitLabel={t('product.addToPantry')}
-        initialValues={selectedPreset ? getPresetFormValues(selectedPreset) : undefined}
+        initialValues={{ barcode: params.barcode ?? null, ...(selectedPreset ? getPresetFormValues(selectedPreset) : {}) }}
         headerContent={<ModeSwitch mode={mode} onChange={changeMode} />}
         onBack={selectedPreset ? () => setSelectedPreset(null) : goBack}
         onSubmit={save}

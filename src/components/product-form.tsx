@@ -20,7 +20,7 @@ type Props = {
   title: string;
   submitLabel: string;
   initialProduct?: Product;
-  initialValues?: Partial<Record<'name' | 'category' | 'unit' | 'storageLocation', string>>;
+  initialValues?: Partial<ProductInput>;
   headerContent?: ReactNode;
   onBack: () => void;
   onSubmit: (input: ProductInput) => Promise<void>;
@@ -34,13 +34,13 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
     : field === 'storageLocation' ? storageLabel(value, t) : value;
   const [fields, setFields] = useState({
     name: initialProduct?.name ?? initialValues?.name ?? '',
-    brand: initialProduct?.brand ?? '',
+    brand: initialProduct?.brand ?? initialValues?.brand ?? '',
     category: initialProduct?.category ?? initialValues?.category ?? '',
-    quantity: initialProduct?.quantity?.toString() ?? '',
+    quantity: (initialProduct?.quantity ?? initialValues?.quantity)?.toString() ?? '',
     unit: initialProduct?.unit ?? initialValues?.unit ?? '',
-    expirationDate: initialProduct?.expirationDate ?? '',
+    expirationDate: initialProduct?.expirationDate ?? initialValues?.expirationDate ?? '',
     storageLocation: initialProduct?.storageLocation ?? initialValues?.storageLocation ?? '',
-    notes: initialProduct?.notes ?? '',
+    notes: initialProduct?.notes ?? initialValues?.notes ?? '',
   });
   const [menu, setMenu] = useState<keyof typeof choices | null>(null);
   const [saving, setSaving] = useState(false);
@@ -71,7 +71,7 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
         category: fields.category, quantity, unit: fields.unit || null,
         expirationDate: fields.expirationDate.trim(), storageLocation: fields.storageLocation || null,
         notes: fields.notes.trim() || null,
-        barcode: initialProduct?.barcode ?? null, imageUrl: initialProduct?.imageUrl ?? null,
+        barcode: initialProduct?.barcode ?? initialValues?.barcode ?? null, imageUrl: initialProduct?.imageUrl ?? initialValues?.imageUrl ?? null,
       });
     } catch {
       const message = t('form.saveError');
