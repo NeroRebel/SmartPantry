@@ -118,6 +118,53 @@ test('all auth strings are translated into all five languages', () => {
   for (const language of ['sk', 'ru', 'uk', 'hu']) assert.deepEqual(Object.keys(translations[language]).sort(), keys);
 });
 
+test('profile supports metadata fallbacks, initials and localized valid creation dates', () => {
+  const profile = helpers.getUserProfile({ user_metadata: { full_name: ' ', name: 'Марія Коваль', picture: 'https://example.com/picture' }, app_metadata: { provider: 'google' } });
+  assert.equal(profile.name, 'Марія Коваль');
+  assert.equal(profile.avatarUrl, 'https://example.com/picture');
+  assert.equal(helpers.getAvatarInitials(profile.name), 'МК');
+  assert.equal(helpers.getAvatarInitials('  Jane Middle Doe '), 'JD');
+  assert.equal(helpers.getAvatarInitials('Ágnes'), 'Á');
+  assert.equal(helpers.getAvatarInitials(''), '');
+  assert.equal(helpers.getUserProfile({ user_metadata: {}, app_metadata: {} }).name, '');
+  assert.equal(helpers.formatAccountDate(undefined, 'en'), null);
+  assert.equal(helpers.formatAccountDate('invalid', 'en'), null);
+  assert.match(helpers.formatAccountDate('2026-10-14T12:00:00Z', 'en'), /2026/);
+});
+
+test('display-name update validates input and updates only full_name, preserving avatar metadata', async () => {
+  const user = { id: 'user-id', user_metadata: { full_name: 'Old', avatar_url: 'https://example.com/avatar', name: 'Google Name' } };
+  let calls = 0;
+  const auth = serviceFactory({ auth: { updateUser: async (input) => {
+    calls++;
+    assert.deepEqual(input, { data: { full_name: 'New Name' } });
+    return { data: { user: { ...user, user_metadata: { ...user.user_metadata, ...input.data } } }, error: null };
+  } } }, redirect);
+  await assert.rejects(auth.updateDisplayName(' '), { code: 'auth.nameRequired' });
+  await assert.rejects(auth.updateDisplayName('x'.repeat(81)), { code: 'profile.nameTooLong' });
+  assert.equal(calls, 0);
+  const updated = await auth.updateDisplayName(' New Name ');
+  assert.equal(helpers.getUserProfile(updated).name, 'New Name');
+  assert.equal(updated.user_metadata.avatar_url, user.user_metadata.avatar_url);
+  assert.equal(updated.user_metadata.name, 'Google Name');
+  assert.equal(calls, 1);
+});
+
+test('profile updates surface API errors and missing-user responses without false success', async () => {
+  const error = { code: 'request_timeout' };
+  await assert.rejects(serviceFactory({ auth: { updateUser: async () => ({ data: {}, error }) } }, redirect).updateDisplayName('Name'), (cause) => cause === error);
+  await assert.rejects(serviceFactory({ auth: { updateUser: async () => ({ data: { user: null }, error: null }) } }, redirect).updateDisplayName('Name'), { code: 'profile_update_failed' });
+});
+
+test('new profile strings are translated in all supported languages', () => {
+  const translations = modules()('i18n/profile.ts').profileTranslations;
+  const keys = Object.keys(translations.en).sort();
+  for (const language of ['sk', 'ru', 'uk', 'hu']) {
+    assert.deepEqual(Object.keys(translations[language]).sort(), keys);
+    for (const value of Object.values(translations[language])) assert.ok(value.trim());
+  }
+});
+
 test('client persists native sessions with refresh/PKCE and rejects privileged keys', () => {
   const previousUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const previousKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;

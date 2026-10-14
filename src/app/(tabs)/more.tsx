@@ -76,7 +76,7 @@ export default function MoreScreen() {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={styles.title}>{t('nav.more')}</Text>
       {profile && <Pressable accessibilityRole="button" accessibilityLabel={t('auth.profile')} onPress={() => router.push('/profile')} style={styles.profile}>
-        <UserAvatar key={profile.avatarUrl} url={profile.avatarUrl} /><View style={styles.rowCopy}><Text style={styles.rowTitle}>{profile.name || t('auth.user')}</Text><Text style={styles.rowSubtitle}>{profile.email}</Text></View><Ionicons name="chevron-forward" size={20} color={colors.secondary} />
+        <UserAvatar key={profile.avatarUrl} url={profile.avatarUrl} name={profile.name || t('auth.user')} /><View style={styles.rowCopy}><Text style={styles.rowTitle}>{profile.name || t('auth.user')}</Text><Text style={styles.rowSubtitle}>{profile.email}</Text></View><Ionicons name="chevron-forward" size={20} color={colors.secondary} />
       </Pressable>}
       <Section title={t('more.activity')}>
         <Row icon="bar-chart-outline" title={t('statistics.title')} subtitle={t('more.statisticsBody')} onPress={() => router.push('/statistics')} />

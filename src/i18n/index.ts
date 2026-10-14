@@ -8,9 +8,10 @@ import { uk } from './locales/uk';
 import { hu } from './locales/hu';
 import { scannerTranslations } from './scanner';
 import { authTranslations } from './auth';
+import { profileTranslations } from './profile';
 
-export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru } },
-  uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu } } };
+export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en, ...profileTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk, ...profileTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru, ...profileTranslations.ru } },
+  uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk, ...profileTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu, ...profileTranslations.hu } } };
 
 export const i18n = createInstance();
 void i18n.use(initReactI18next).init({

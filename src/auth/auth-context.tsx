@@ -57,14 +57,18 @@ function useAuthState() {
   const signOut = useCallback(async () => {
     await authService.signOut(); setSession(null); setRestoreError(null);
   }, []);
+  const updateDisplayName = useCallback(async (name: string) => {
+    const updated = await authService.updateDisplayName(name);
+    setSession((current) => current?.user.id === updated.id ? { ...current, user: updated } : current);
+  }, []);
   const retryRestore = useCallback(() => {
     if (!supabase) return;
     setLoading(true); setRestoreError(null);
     setRestoreAttempt((value) => ({ value: value.value + 1 }));
   }, []);
   return useMemo(() => ({ session, user: session?.user ?? null, loading, restoreError,
-    configured: !!supabase, signIn, signUp, signInWithGoogle, signOut, completeCallback, retryRestore, authErrorKey }),
-  [session, loading, restoreError, signIn, signUp, signInWithGoogle, signOut, completeCallback, retryRestore]);
+    configured: !!supabase, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, completeCallback, retryRestore, authErrorKey }),
+  [session, loading, restoreError, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, completeCallback, retryRestore]);
 }
 
 const AuthContext = createContext<ReturnType<typeof useAuthState> | null>(null);

@@ -38,6 +38,22 @@ export function getUserProfile(user: User) {
 
 export type AuthCallback = { type: 'code'; code: string } | { type: 'tokens'; accessToken: string; refreshToken: string } | { type: 'error' };
 
+export function getAvatarInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return words.length ? (Array.from(words[0])[0] + (words.length > 1 ? Array.from(words[words.length - 1])[0] : '')).toLocaleUpperCase() : '';
+}
+
+export function validateDisplayName(name: string): string | null {
+  if (!name.trim()) return 'auth.nameRequired';
+  return Array.from(name.trim()).length > 80 ? 'profile.nameTooLong' : null;
+}
+
+export function formatAccountDate(value: string | undefined, language: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString(language, { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 export function parseAuthCallback(value: string, redirectTo: string): AuthCallback | null {
   const url = new URL(value);
   const expected = new URL(redirectTo);

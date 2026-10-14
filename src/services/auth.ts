@@ -3,7 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { parseAuthCallback } from '@/utils/auth';
+import { parseAuthCallback, validateDisplayName } from '@/utils/auth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -51,6 +51,14 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       return { session: data.session, confirmationRequired: !data.session };
     },
     completeCallback,
+    async updateDisplayName(name: string) {
+      const validation = validateDisplayName(name);
+      if (validation) failure(validation);
+      const { data, error } = await requireClient().auth.updateUser({ data: { full_name: name.trim() } });
+      if (error) throw error;
+      if (!data.user) failure('profile_update_failed');
+      return data.user;
+    },
     async signInWithGoogle() {
       const { data, error } = await requireClient().auth.signInWithOAuth({ provider: 'google', options: {
         redirectTo, skipBrowserRedirect: !web, queryParams: { prompt: 'select_account' },

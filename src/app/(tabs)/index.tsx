@@ -5,11 +5,14 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '@/auth/auth-context';
+import { UserAvatar } from '@/components/user-avatar';
 import { getProductStats } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { ProductStats } from '@/types/product';
 import { useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
+import { getUserProfile } from '@/utils/auth';
 
 const emptyStats: ProductStats = { total: 0, fresh: 0, expiringSoon: 0, expired: 0 };
 
@@ -20,6 +23,8 @@ function openInventory() {
 export default function HomeScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
+  const profile = !authLoading && user ? getUserProfile(user) : null;
   const insets = useSafeAreaInsets();
   const { data, loading, error, reload } = useFocusedData(getProductStats);
   const stats = data ?? emptyStats;
@@ -49,9 +54,14 @@ export default function HomeScreen() {
               <Text style={styles.accent}>{t('home.headlineAccent')}</Text>
             </Text>
           </View>
-          <View accessible accessibilityLabel={t('home.profile')} style={styles.avatar}>
-            <Ionicons name="person-outline" size={23} color={colors.white} />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('auth.profile')}
+            onPress={() => router.push('/profile')}
+            style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+          >
+            <UserAvatar url={profile?.avatarUrl ?? null} name={profile?.name ?? ''} size={44} />
+          </Pressable>
         </View>
 
         <Pressable
@@ -195,7 +205,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   greeting: { color: colors.secondary, fontSize: 14, lineHeight: 20, marginBottom: 8 },
   headline: { color: colors.white, fontSize: 36, lineHeight: 42, fontWeight: '700' },
   accent: { color: colors.orange },
-  avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  avatar: { width: 46, height: 46, flexShrink: 0, borderRadius: 23, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginTop: 3, overflow: 'hidden' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, paddingHorizontal: 17, paddingVertical: 14, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   searchPlaceholder: { flex: 1, color: colors.secondary, fontSize: 14 },
   loadMessage: { flexDirection: 'row', alignItems: 'center', gap: 12 },
