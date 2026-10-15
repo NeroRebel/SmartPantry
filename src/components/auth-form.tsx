@@ -9,7 +9,7 @@ import { useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
 import { validateCredentials } from '@/utils/auth';
 
-export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
+export function AuthForm({ mode, successMessage }: { mode: 'sign-in' | 'sign-up'; successMessage?: string }) {
   const signup = mode === 'sign-up';
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
@@ -63,6 +63,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.brand}><View style={styles.brandIcon}><Ionicons name="leaf-outline" size={30} color={colors.accent} /></View><Text style={styles.brandName}>SmartPantry</Text></View>
         <Text accessibilityRole="header" style={styles.title}>{t(signup ? 'auth.createAccount' : 'auth.signIn')}</Text>
+        {successMessage && <Text accessibilityLiveRegion="polite" style={styles.notice}>{t(successMessage)}</Text>}
         {!auth.configured && <Text accessibilityRole="alert" style={styles.error}>{t('auth.unavailable')}</Text>}
         {auth.restoreError && <View style={styles.feedback}><Text style={styles.error}>{t(auth.restoreError)}</Text><Pressable accessibilityRole="button" onPress={auth.retryRestore}><Text style={styles.link}>{t('common.retry')}</Text></Pressable></View>}
         {signup && <View style={styles.field}><Text style={styles.label}>{t('auth.name')}</Text><TextInput accessibilityLabel={t('auth.name')} value={name} onChangeText={setName} editable={!busy} autoComplete="name" textContentType="name" maxLength={80} style={styles.input} selectionColor={colors.accent} /></View>}

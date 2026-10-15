@@ -10,8 +10,8 @@ import { editProduct } from '@/services/product-lifecycle';
 export default function EditProductScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const productId = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : NaN;
-  const load = useCallback(() => Number.isSafeInteger(productId) && productId > 0 ? getProductById(productId) : Promise.resolve(null), [productId]);
+  const productId = typeof id === 'string' && id.length > 0 && id.length <= 256 ? id : null;
+  const load = useCallback(() => productId ? getProductById(productId) : Promise.resolve(null), [productId]);
   const { data: product, loading, error, reload } = useFocusedData(load);
 
   if ((loading && !product) || error || !product) {

@@ -14,7 +14,7 @@ export default function AuthCallbackScreen() {
   const { completeCallback, authErrorKey, signOut } = useAuth();
   const nativeUrl = Linking.useLinkingURL();
   const url = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.href : nativeUrl;
-  const [result, setResult] = useState<{ url: string; status: 'confirmed' | 'error' | 'recovery' | 'authenticated'; error?: string } | null>(null);
+  const [result, setResult] = useState<{ url: string; status: 'confirmed' | 'email-changed' | 'error' | 'recovery' | 'authenticated'; error?: string } | null>(null);
   const [returnTo, setReturnTo] = useState<'/(auth)/sign-in' | '/(auth)/forgot-password' | null>(null);
   useEffect(() => {
     if (!url) return;
@@ -29,10 +29,10 @@ export default function AuthCallbackScreen() {
   const current = result?.url === url ? result : null;
   if (current?.status === 'recovery') return <Redirect href="/(auth)/reset-password" />;
   if (current?.status === 'authenticated') return <Redirect href="/(tabs)" />;
-  const confirmedWithoutSession = current?.status === 'confirmed';
+  const confirmedWithoutSession = current?.status === 'confirmed' || current?.status === 'email-changed';
   const callbackError = current?.error ?? (!url ? 'auth.oauthError' : null);
   return <SafeAreaView style={styles.screen}><View style={styles.content}>
-    {confirmedWithoutSession ? <Text accessibilityLiveRegion="polite" style={styles.success}>{t('confirmation.confirmedSignIn')}</Text> : callbackError ? <Text accessibilityRole="alert" style={styles.error}>{t(callbackError)}</Text>
+    {confirmedWithoutSession ? <Text accessibilityLiveRegion="polite" style={styles.success}>{t(current?.status === 'email-changed' ? 'account.emailCallback' : 'confirmation.confirmedSignIn')}</Text> : callbackError ? <Text accessibilityRole="alert" style={styles.error}>{t(callbackError)}</Text>
       : <><ActivityIndicator size="large" color={colors.accent} /><Text style={styles.label}>{t('auth.completing')}</Text></>}
     <Text style={styles.label}>{t('confirmation.callbackHelp')}</Text>
     {callbackError && <Pressable accessibilityRole="button" onPress={() => { void signOut().then(() => setReturnTo('/(auth)/forgot-password')).catch(() => setResult({ url: url ?? '', status: 'error', error: 'auth.networkError' })); }} style={styles.button}><Text style={styles.buttonText}>{t('password.requestAnother')}</Text></Pressable>}

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/auth-context';
 import { UserAvatar } from '@/components/user-avatar';
+import { SyncSection } from '@/components/sync-section';
 import { useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
 import { formatAccountDate, getUserProfile, hasEmailIdentity, validateDisplayName } from '@/utils/auth';
@@ -113,19 +114,18 @@ export default function ProfileScreen() {
           <View style={styles.row}><Text style={styles.label}>{t('auth.email')}</Text><Text selectable style={styles.value}>{profile.email || t('common.unknown')}</Text></View>
           <View style={styles.row}><Text style={styles.label}>{t('auth.provider')}</Text><Text style={styles.value}>{t(`auth.provider.${profile.provider}`)}</Text></View>
           {created && <View style={styles.row}><Text style={styles.label}>{t('profile.created')}</Text><Text style={styles.value}>{created}</Text></View>}
+          {hasEmailIdentity(user) && <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.push('/settings/change-email')} style={styles.row}><View style={styles.nameRow}><Ionicons name="mail-outline" size={20} color={colors.accent} /><Text style={[styles.value, styles.flex]}>{t('account.changeEmail')}</Text><Ionicons name="chevron-forward" size={20} color={colors.secondary} /></View></Pressable>}
           {hasEmailIdentity(user) ? <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.push('/settings/change-password')} style={styles.row}><View style={styles.nameRow}><Ionicons name="lock-closed-outline" size={20} color={colors.accent} /><Text style={[styles.value, styles.flex]}>{t('password.change')}</Text><Ionicons name="chevron-forward" size={20} color={colors.secondary} /></View></Pressable>
             : profile.provider === 'google' && <View style={styles.row}><Text style={styles.label}>{t('password.googleManaged')}</Text></View>}
         </View>
       </View>
       {notice && <Text accessibilityLiveRegion="polite" style={styles.success}>{t(notice)}</Text>}
       {error && <Text accessibilityRole="alert" style={styles.error}>{t(error)}</Text>}
-      <View style={styles.localInfo}>
-        <Ionicons name="phone-portrait-outline" size={24} color={colors.secondary} />
-        <View style={styles.flex}><Text style={styles.infoTitle}>{t('profile.localTitle')}</Text><Text style={styles.infoBody}>{t('profile.localBody')}</Text></View>
-      </View>
+      <SyncSection />
       <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!busy, busy: busy === 'logout' }} disabled={!!busy} onPress={() => setConfirmation('logout')} style={[styles.logout, !!busy && styles.disabled]}>
         {busy === 'logout' ? <ActivityIndicator color={colors.danger} /> : <><Ionicons name="log-out-outline" size={22} color={colors.danger} /><Text style={styles.logoutText}>{t('auth.signOut')}</Text></>}
       </Pressable>
+      <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.push('/settings/delete-account')} style={styles.logout}><Ionicons name="trash-outline" size={22} color={colors.danger} /><Text style={styles.logoutText}>{t('account.deleteTitle')}</Text></Pressable>
     </ScrollView>
     <Modal visible={!!confirmation} transparent animationType="fade" onRequestClose={() => setConfirmation(null)}>
       <SafeAreaView style={styles.modalBackdrop}>
@@ -155,7 +155,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   input: { minHeight: 50, color: colors.text, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
   formActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, save: { minHeight: 48, padding: 14, backgroundColor: colors.accentFill, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
   saveText: { color: colors.onAccent, fontSize: 15, fontWeight: '600' }, cancel: { minHeight: 48, padding: 14, alignItems: 'center', justifyContent: 'center' }, cancelText: { color: colors.secondary, fontSize: 15 },
-  localInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, infoTitle: { color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 6 }, infoBody: { color: colors.secondary, fontSize: 14, lineHeight: 21 },
+  infoBody: { color: colors.secondary, fontSize: 14, lineHeight: 21 },
   logout: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 16 },
   logoutText: { color: colors.danger, fontSize: 15, fontWeight: '600' }, error: { color: colors.danger, fontSize: 14, lineHeight: 21 }, success: { color: colors.fresh, fontSize: 14, lineHeight: 21 }, disabled: { opacity: 0.5 },
   modalBackdrop: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },

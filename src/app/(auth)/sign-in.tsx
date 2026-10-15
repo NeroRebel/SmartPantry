@@ -1,2 +1,6 @@
 import { AuthForm } from '@/components/auth-form';
-export default function SignInScreen() { return <AuthForm mode="sign-in" />; }
+import { useLocalSearchParams } from 'expo-router';
+export default function SignInScreen() {
+  const { accountDeleted } = useLocalSearchParams<{ accountDeleted?: string }>();
+  return <AuthForm mode="sign-in" successMessage={accountDeleted === '1' ? 'account.deleted' : undefined} />;
+}

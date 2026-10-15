@@ -23,7 +23,7 @@ export default function ScannedProductScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   const [imageFailed, setImageFailed] = useState(false);
-  const [acceptedDuplicate, setAcceptedDuplicate] = useState<number | null>(null);
+  const [acceptedDuplicate, setAcceptedDuplicate] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!isValidBarcode(barcode)) throw new Error('Invalid barcode');
     const [product, products] = await Promise.all([selection ? Promise.resolve(getProductSelection(selection, barcode)) : lookupBarcode(barcode), getProducts()]);

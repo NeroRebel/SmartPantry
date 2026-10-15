@@ -36,7 +36,7 @@ export function calculateStatistics(entries: readonly ProductHistoryEntry[]) {
     total: consumed + wasted,
     wasteRate: calculateWasteRate(consumed, wasted),
     wastedCategories: groupWastedByCategory(entries),
-    recent: [...entries].sort((a, b) => b.actionDate.localeCompare(a.actionDate) || b.id - a.id).slice(0, 7),
+    recent: [...entries].sort((a, b) => b.actionDate.localeCompare(a.actionDate) || String(b.id).localeCompare(String(a.id), undefined, { numeric: true })).slice(0, 7),
   };
 }
 

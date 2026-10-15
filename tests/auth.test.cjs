@@ -34,6 +34,39 @@ const serviceFactory = modules({
 })('services/auth.ts').createAuthService;
 const session = { user: { id: 'user-id' } };
 
+test('change email uses supported updateUser redirect and real SDK user, never changes Google-only accounts', async () => {
+  const user = { id: 'user-id', email: 'old@example.com', identities: [{ provider: 'email' }] };
+  const calls = [];
+  const service = serviceFactory({ auth: {
+    getSession: async () => ({ data: { session: { user } }, error: null }),
+    updateUser: async (input, options) => { calls.push([input, options]); return { data: { user: { ...user, new_email: input.email } }, error: null }; },
+  } }, redirect);
+  assert.equal((await service.updateEmail(' new@example.com ')).email, 'old@example.com');
+  assert.deepEqual(calls, [[{ email: 'new@example.com' }, { emailRedirectTo: redirect }]]);
+  await assert.rejects(service.updateEmail('bad'), { code: 'email_address_invalid' });
+  user.identities = [{ provider: 'google' }];
+  await assert.rejects(service.updateEmail('new@example.com'), { code: 'account.googleManaged' });
+  assert.equal(calls.length, 1);
+});
+
+test('email change callback shares the existing callback without treating partial confirmation as completed signup', async () => {
+  const service = serviceFactory({ auth: { getSession: async () => ({ data: { session: null }, error: null }) } }, redirect);
+  const info = helpers.inspectAuthCallback(`${redirect}?type=email_change`, redirect);
+  assert.equal(info.emailChangeDetected, true); assert.equal(info.emailConfirmationDetected, false);
+  assert.equal(await service.completeCallback(`${redirect}?type=email_change`), null);
+});
+
+test('sessionless email-change confirmation refreshes the existing real session, not a fabricated email', async () => {
+  let refreshed = 0;
+  const updated = { user: { id: 'user-id', email: 'new@example.com' } };
+  const service = serviceFactory({ auth: {
+    getSession: async () => ({ data: { session }, error: null }),
+    refreshSession: async () => { refreshed++; return { data: { session: updated }, error: null }; },
+  } }, redirect);
+  assert.equal(await service.completeCallback(`${redirect}?type=email_change`), updated);
+  assert.equal(refreshed, 1);
+});
+
 test('credential validation handles missing fields, email, length and confirmation without trimming passwords', () => {
   assert.equal(helpers.validateCredentials('', ''), 'auth.required');
   assert.equal(helpers.validateCredentials('bad', 'password'), 'auth.invalidEmail');
@@ -220,6 +253,7 @@ function authStateHarness(storedSession = null, storedRecovery = null) {
     isRecoveryCallback: () => true,
     updatePassword: async () => session.user,
     signOut: async () => listener('SIGNED_OUT', null),
+    clearDeletedSession: async () => { listener('SIGNED_OUT', null); return true; },
   };
   const { AuthProvider } = modules({
     react, 'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
@@ -256,6 +290,26 @@ test('AuthProvider routes legacy recovery without PASSWORD_RECOVERY event and cl
   assert.equal(harness.writes.at(-1), null);
   harness.value.finishPasswordRecovery(); await harness.flush();
   assert.equal(harness.value.passwordRecoveryComplete, false); assert.deepEqual(harness.value.session, session);
+});
+
+test('successful account deletion clears AuthProvider session and recovery state', async () => {
+  const app = authStateHarness(session, session.user.id); await app.flush();
+  assert.equal(app.value.recovering, true);
+  await app.value.clearDeletedSession(session.user.id); await app.flush();
+  assert.equal(app.value.session, null); assert.equal(app.value.user, null);
+  assert.equal(app.value.recovering, false); assert.equal(app.value.pendingVerification, null);
+  assert.equal(app.writes.at(-1), null);
+});
+
+test('deleted-session cleanup never signs out a different current user and tolerates already-cleared sessions', async () => {
+  let current = session; const calls = [];
+  const service = serviceFactory({ auth: {
+    getSession: async () => ({ data: { session: current }, error: null }),
+    signOut: async (options) => { calls.push(options); current = null; return { error: new TypeError('Network failed after local SDK cleanup') }; },
+  } }, redirect);
+  assert.equal(await service.clearDeletedSession('another-user'), false); assert.equal(calls.length, 0);
+  assert.equal(await service.clearDeletedSession(session.user.id), true);
+  assert.deepEqual(calls, [{ scope: 'local' }]);
 });
 
 test('AuthProvider handles PASSWORD_RECOVERY and restores only a marker belonging to the real session', async () => {

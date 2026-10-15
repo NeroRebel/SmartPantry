@@ -36,6 +36,9 @@ export function authErrorKey(error: unknown): string {
     reauthentication_needed: 'password.reauthRequired', reauthentication_not_valid: 'password.reauthInvalid',
     reauth_nonce_missing: 'password.reauthRequired',
     same_password: 'password.samePassword', password_too_short: 'auth.passwordLength',
+    'account.googleManaged': 'account.googleManaged', 'account.deleting': 'account.deleting',
+    'account.deleteFailed': 'account.deleteFailed', 'account.cleanupFailed': 'account.cleanupFailed',
+    'account.confirmRequired': 'account.typeDelete',
     'auth.required': 'auth.required', 'auth.passwordLength': 'auth.passwordLength', 'auth.passwordMismatch': 'auth.passwordMismatch',
   };
   if (value.code && keys[value.code]) return keys[value.code];
@@ -107,10 +110,11 @@ export function inspectAuthCallback(value: string, redirectTo: string, pendingEm
       safeUrl: callback ? `${redirectTo}${url.search ? '?[redacted]' : ''}${url.hash ? '#[redacted]' : ''}` : '[unrecognized callback]',
       emailConfirmationDetected: !!callback && type !== 'recovery' && (explicitEmail || pendingEmailConfirmation),
       recoveryDetected: !!callback && type === 'recovery',
+      emailChangeDetected: !!callback && type === 'email_change',
       linkExpired: !!callback && (url.searchParams.get('error_code') ?? hash.get('error_code')) === 'otp_expired',
       detectionSource: explicitEmail ? 'callback-type' : pendingEmailConfirmation ? 'pending-registration' : 'unknown',
     };
   } catch {
-    return { callback: null, safeUrl: '[invalid callback]', emailConfirmationDetected: false, recoveryDetected: false, linkExpired: false, detectionSource: 'unknown' };
+    return { callback: null, safeUrl: '[invalid callback]', emailConfirmationDetected: false, recoveryDetected: false, emailChangeDetected: false, linkExpired: false, detectionSource: 'unknown' };
   }
 }

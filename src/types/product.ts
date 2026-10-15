@@ -8,7 +8,7 @@ export interface ProductStats {
 }
 
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   brand: string | null;
   barcode: string | null;

@@ -1,4 +1,5 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import { migrateSyncMetadata } from './sync-migration';
 
 let databasePromise: Promise<SQLiteDatabase> | undefined;
 
@@ -73,6 +74,7 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
             await db.execAsync(`ALTER TABLE notification_settings ADD COLUMN ${name} ${declaration}`);
           }
         }
+        await migrateSyncMetadata(db);
         return db;
       } catch (error) {
         await db.closeAsync().catch(() => {});

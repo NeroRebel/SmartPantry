@@ -2,13 +2,14 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState, Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { authService } from '@/services/auth';
-import { authErrorKey } from '@/utils/auth';
+import { authService, authRedirectUri } from '@/services/auth';
+import { authErrorKey, inspectAuthCallback } from '@/utils/auth';
 import { readPendingVerification, savePendingVerification, type PendingVerification } from '@/services/pending-verification';
 import { isValidVerificationEmail, RESEND_COOLDOWN_SECONDS } from '@/utils/email-verification';
 import { avatarService } from '@/services/avatars';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
 import { readRecoveryUser, saveRecoveryUser } from '@/services/password-recovery';
+import { runAccountOperation } from '@/services/account-lock';
 
 function useAuthState() {
   const [session, setSession] = useState<Session | null>(null);
@@ -110,7 +111,7 @@ function useAuthState() {
         await saveRecoveryUser(next!.user.id).catch(() => {});
       }
       if (next) { setSession(next); setRestoreError(null); }
-      return recovery ? 'recovery' as const : next ? 'authenticated' as const : 'confirmed' as const;
+      return recovery ? 'recovery' as const : next ? 'authenticated' as const : inspectAuthCallback(url, authRedirectUri).emailChangeDetected ? 'email-changed' as const : 'confirmed' as const;
     } finally { setProcessingCallback(false); }
   }, [pendingVerification]);
   const signOut = useCallback(async () => {
@@ -120,7 +121,7 @@ function useAuthState() {
   const sendPasswordReset = useCallback((email: string) => authService.sendPasswordReset(email), []);
   const reauthenticate = useCallback(() => authService.reauthenticate(), []);
   const updatePassword = useCallback(async (password: string, confirmation: string, nonce?: string) => {
-    const updated = await authService.updatePassword(password, confirmation, nonce);
+    const updated = await runAccountOperation(user?.id ?? '', () => authService.updatePassword(password, confirmation, nonce));
     // Clear the restart marker before admitting the recovery session to protected screens.
     await saveRecoveryUser(null).catch(() => {});
     setPasswordRecoveryComplete(!!user && recoveryUserId === user.id);
@@ -130,17 +131,27 @@ function useAuthState() {
   const recovering = !!user && recoveryUserId === user.id;
   const finishPasswordRecovery = useCallback(() => setPasswordRecoveryComplete(false), []);
   const updateDisplayName = useCallback(async (name: string) => {
-    const updated = await authService.updateDisplayName(name);
+    const updated = await runAccountOperation(user?.id ?? '', () => authService.updateDisplayName(name));
     setSession((current) => current?.user.id === updated.id ? { ...current, user: updated } : current);
+  }, [user]);
+  const updateEmail = useCallback(async (email: string) => {
+    const updated = await runAccountOperation(user?.id ?? '', () => authService.updateEmail(email));
+    setSession((current) => current?.user.id === updated.id ? { ...current, user: updated } : current);
+  }, [user]);
+  const clearDeletedSession = useCallback(async (userId: string) => {
+    if (!await authService.clearDeletedSession(userId)) return;
+    setSession((current) => !current || current.user.id === userId ? null : current);
+    setRecoveryUserId(null); setPasswordRecoveryComplete(false); setPendingVerification(null); setRestoreError(null);
+    await Promise.all([saveRecoveryUser(null), savePendingVerification(null)]).catch(() => {});
   }, []);
   const uploadAvatar = useCallback(async (buffer: ArrayBuffer) => {
     if (!user) throw Object.assign(new Error('Session changed'), { code: 'avatar.sessionChanged' });
-    const updated = await avatarService.upload(user, buffer);
+    const updated = await runAccountOperation(user.id, () => avatarService.upload(user, buffer));
     setSession((current) => current?.user.id === updated.id ? { ...current, user: updated } : current);
   }, [user]);
   const removeAvatar = useCallback(async () => {
     if (!user) throw Object.assign(new Error('Session changed'), { code: 'avatar.sessionChanged' });
-    const updated = await avatarService.remove(user);
+    const updated = await runAccountOperation(user.id, () => avatarService.remove(user));
     setSession((current) => current?.user.id === updated.id ? { ...current, user: updated } : current);
   }, [user]);
   const retryRestore = useCallback(() => {
@@ -149,8 +160,8 @@ function useAuthState() {
     setRestoreAttempt((value) => ({ value: value.value + 1 }));
   }, []);
   return useMemo(() => ({ session, user, recovering, passwordRecoveryComplete, finishPasswordRecovery, processingCallback, sendPasswordReset, updatePassword, reauthenticate, avatarUrl, uploadAvatar, removeAvatar, loading, restoreError, pendingVerification, prepareEmailConfirmation, resendConfirmationEmail,
-    configured: !!supabase, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, completeCallback, retryRestore, authErrorKey }),
-  [session, user, recovering, passwordRecoveryComplete, finishPasswordRecovery, processingCallback, sendPasswordReset, updatePassword, reauthenticate, avatarUrl, uploadAvatar, removeAvatar, loading, restoreError, pendingVerification, prepareEmailConfirmation, resendConfirmationEmail, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, completeCallback, retryRestore]);
+    configured: !!supabase, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, updateEmail, clearDeletedSession, completeCallback, retryRestore, authErrorKey }),
+  [session, user, recovering, passwordRecoveryComplete, finishPasswordRecovery, processingCallback, sendPasswordReset, updatePassword, reauthenticate, avatarUrl, uploadAvatar, removeAvatar, loading, restoreError, pendingVerification, prepareEmailConfirmation, resendConfirmationEmail, signIn, signUp, signInWithGoogle, signOut, updateDisplayName, updateEmail, clearDeletedSession, completeCallback, retryRestore]);
 }
 
 const AuthContext = createContext<ReturnType<typeof useAuthState> | null>(null);

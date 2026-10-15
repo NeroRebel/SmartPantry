@@ -20,7 +20,7 @@ function setup({ platform = 'ios', failDelete = false } = {}) {
         getAllAsync: async (sql, ...params) => connection.prepare(sql).all(...params),
         getFirstAsync: async (sql, ...params) => connection.prepare(sql).get(...params) ?? null,
         runAsync: async (sql, ...params) => {
-          if (failDelete && sql.startsWith('DELETE FROM products')) throw new Error('Simulated delete failure');
+          if (failDelete && sql.startsWith('UPDATE products SET deleted_at')) throw new Error('Simulated delete failure');
           const result = connection.prepare(sql).run(...(Array.isArray(params[0]) ? params[0] : params));
           return { changes: Number(result.changes), lastInsertRowId: Number(result.lastInsertRowid) };
         },

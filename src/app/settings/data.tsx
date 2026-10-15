@@ -9,6 +9,7 @@ import { useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
 import { clearProductHistory, clearShoppingList } from '@/db/manage-data';
 import { clearAllDataAndReminders } from '@/services/manage-data';
+import { getLocalUserId } from '@/db/local-state';
 
 function confirm(title: string, message: string, action: () => void, cancel: string, clear: string) {
   if (Platform.OS === 'web') {
@@ -24,11 +25,12 @@ function showResult(title: string, message: string) {
 }
 
 export default function ManageDataScreen() {
+  const owner = getLocalUserId();
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   async function run(action: () => Promise<void>, success: string) {
-    if (busy) return;
+    if (busy || owner !== getLocalUserId()) return;
     setBusy(true);
     try { await action(); showResult(t('data.done'), success); }
     catch { showResult(t('data.clearError'), t('common.pleaseTryAgain')); }
@@ -41,15 +43,15 @@ export default function ManageDataScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/more')} style={styles.back}><Ionicons name="chevron-back" size={24} color={colors.text} /></Pressable>
         <Text accessibilityRole="header" style={styles.title}>{t('data.title')}</Text>
       </View>
-      <Text style={styles.intro}>{t('data.intro')}</Text>
+      <Text style={styles.intro}>{t('sync.clearScope')}</Text>
       <View style={styles.group}>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearShopping'), t('data.shoppingConfirm'), () => void run(clearShoppingList, t('data.shoppingDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearShopping'), `${t('data.shoppingConfirm')}\n\n${t('sync.clearScope')}`, () => void run(clearShoppingList, t('data.shoppingDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
           <Ionicons name="basket-outline" size={21} color={colors.expired} /><View style={styles.copy}><Text style={styles.rowTitle}>{t('data.clearShopping')}</Text><Text style={styles.rowSubtitle}>{t('data.shoppingBody')}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.secondary} />
         </Pressable>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearHistory'), t('data.historyConfirm'), () => void run(clearProductHistory, t('data.historyDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearHistory'), `${t('data.historyConfirm')}\n\n${t('sync.clearScope')}`, () => void run(clearProductHistory, t('data.historyDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
           <Ionicons name="time-outline" size={21} color={colors.expired} /><View style={styles.copy}><Text style={styles.rowTitle}>{t('data.clearHistory')}</Text><Text style={styles.rowSubtitle}>{t('data.historyBody')}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.secondary} />
         </Pressable>
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearAll'), t('data.allConfirm'), () => void run(clearAllDataAndReminders, t('data.allDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => confirm(t('data.clearAll'), `${t('data.allConfirm')}\n\n${t('sync.clearScope')}`, () => void run(clearAllDataAndReminders, t('data.allDone')), t('common.cancel'), t('common.clear'))} style={styles.row}>
           <Ionicons name="trash-outline" size={21} color={colors.expired} /><View style={styles.copy}><Text style={[styles.rowTitle, styles.danger]}>{t('data.clearAll')}</Text><Text style={styles.rowSubtitle}>{t('data.allBody')}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.secondary} />
         </Pressable>
       </View>

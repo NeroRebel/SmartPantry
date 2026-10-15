@@ -1,8 +1,10 @@
-import { initializeDatabase } from './database';
+import { newLocalId, withOwnedData } from './owned-data';
+import { localTimestamp } from './local-state';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import type { NewShoppingItem, ShoppingItem, ShoppingItemSource } from '@/types/shopping-item';
 
 interface ShoppingItemRow {
-  id: number;
+  id: string;
   name: string;
   quantity: number | null;
   unit: string | null;
@@ -30,41 +32,53 @@ function inputValues(input: NewShoppingItem) {
 }
 
 export async function getShoppingItems(): Promise<ShoppingItem[]> {
-  const db = await initializeDatabase();
-  const rows = await db.getAllAsync<ShoppingItemRow>(`SELECT ${columns} FROM shopping_list ORDER BY completed ASC, created_at DESC, id DESC`);
+  const rows = await withOwnedData((db, owner) => db.getAllAsync<ShoppingItemRow>(`SELECT ${columns} FROM shopping_list WHERE user_id = ? AND deleted_at IS NULL ORDER BY completed ASC, created_at DESC, id DESC`, owner));
   return rows.map(mapRow);
 }
 
-export async function createShoppingItem(input: NewShoppingItem): Promise<number> {
+export async function createShoppingItem(input: NewShoppingItem): Promise<string> {
   const params = inputValues(input);
-  const db = await initializeDatabase();
-  const result = await db.runAsync(`INSERT INTO shopping_list
-    (name, quantity, unit, category, source, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    [...params, input.source ?? 'manual', new Date().toISOString()]);
-  return result.lastInsertRowId;
+  return withOwnedData(async (db, owner) => {
+    const id = await newLocalId(db); const now = localTimestamp();
+    await db.runAsync(`INSERT INTO shopping_list
+      (name, quantity, unit, category, source, created_at, updated_at, id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [...params, input.source ?? 'manual', now, now, id, owner]);
+    return id;
+  }, true);
 }
 
-export async function updateShoppingItem(id: number, input: NewShoppingItem): Promise<void> {
+export async function updateShoppingItem(id: string, input: NewShoppingItem): Promise<void> {
   const params = inputValues(input);
-  const db = await initializeDatabase();
-  const result = await db.runAsync(`UPDATE shopping_list SET name = ?, quantity = ?, unit = ?, category = ? WHERE id = ?`,
-    [...params, id]);
-  if (!result.changes) throw new Error('This shopping item no longer exists.');
+  await mutateItem(id, async (db, owner, now) => {
+    await db.runAsync(`UPDATE shopping_list SET name = ?, quantity = ?, unit = ?, category = ?, updated_at = ?, local_revision = local_revision + 1 WHERE id = ? AND user_id = ? AND deleted_at IS NULL`, [...params, now, id, owner]);
+  });
 }
 
-export async function toggleShoppingItemCompleted(id: number): Promise<void> {
-  const db = await initializeDatabase();
-  const result = await db.runAsync('UPDATE shopping_list SET completed = CASE completed WHEN 0 THEN 1 ELSE 0 END WHERE id = ?', id);
-  if (!result.changes) throw new Error('This shopping item no longer exists.');
+export async function toggleShoppingItemCompleted(id: string): Promise<void> {
+  await mutateItem(id, async (db, owner, now) => {
+    await db.runAsync('UPDATE shopping_list SET completed = CASE completed WHEN 0 THEN 1 ELSE 0 END, updated_at = ?, local_revision = local_revision + 1 WHERE id = ? AND user_id = ? AND deleted_at IS NULL', now, id, owner);
+  });
 }
 
-export async function deleteShoppingItem(id: number): Promise<void> {
-  const db = await initializeDatabase();
-  await db.runAsync('DELETE FROM shopping_list WHERE id = ?', id);
+export async function deleteShoppingItem(id: string): Promise<void> {
+  await mutateItem(id, async (db, owner, now) => {
+    await db.runAsync('UPDATE shopping_list SET deleted_at = ?, updated_at = ?, local_revision = local_revision + 1 WHERE id = ? AND user_id = ? AND deleted_at IS NULL', now, now, id, owner);
+  }, false);
 }
 
 export async function clearCompletedShoppingItems(): Promise<number> {
-  const db = await initializeDatabase();
-  const result = await db.runAsync('DELETE FROM shopping_list WHERE completed = 1');
-  return result.changes;
+  return withOwnedData(async (db, owner) => {
+    const newest = await db.getFirstAsync<{ updated_at: string }>('SELECT MAX(updated_at) AS updated_at FROM shopping_list WHERE user_id = ?', owner);
+    const now = localTimestamp(newest?.updated_at);
+    const result = await db.runAsync('UPDATE shopping_list SET deleted_at = ?, updated_at = ?, local_revision = local_revision + 1 WHERE completed = 1 AND user_id = ? AND deleted_at IS NULL', now, now, owner);
+    return result.changes;
+  }, true);
+}
+
+async function mutateItem(id: string, apply: (db: SQLiteDatabase, owner: string, now: string) => Promise<void>, required = true) {
+  await withOwnedData(async (db, owner) => {
+    const row = await db.getFirstAsync<{ updated_at: string }>('SELECT updated_at FROM shopping_list WHERE id = ? AND user_id = ? AND deleted_at IS NULL', id, owner);
+    if (!row) { if (required) throw new Error('This shopping item no longer exists.'); return; }
+    await apply(db, owner, localTimestamp(row.updated_at));
+  }, true);
 }

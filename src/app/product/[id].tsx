@@ -16,6 +16,7 @@ import type { Product } from '@/types/product';
 import type { ProductHistoryAction } from '@/types/product-history';
 import { formatQuantity, getProductStatus } from '@/utils/product-status';
 import { categoryLabel, expirationLabel, storageLabel } from '@/i18n/format';
+import { getLocalUserId } from '@/db/local-state';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -46,6 +47,7 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 }
 
 function ProductDetails({ product }: { product: Product }) {
+  const owner = getLocalUserId();
   const { colors, styles } = useThemedStyles(createStyles);
   const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState<'delete' | ProductHistoryAction | null>(null);
@@ -53,7 +55,7 @@ function ProductDetails({ product }: { product: Product }) {
   const status = getProductStatus(product.expirationDate);
 
   async function remove() {
-    if (busyRef.current) return;
+    if (busyRef.current || owner !== getLocalUserId()) return;
     busyRef.current = true;
     setBusy('delete');
     try {
@@ -68,7 +70,7 @@ function ProductDetails({ product }: { product: Product }) {
   }
 
   async function complete(action: ProductHistoryAction) {
-    if (busyRef.current) return;
+    if (busyRef.current || owner !== getLocalUserId()) return;
     busyRef.current = true;
     setBusy(action);
     try {
@@ -172,8 +174,8 @@ function ProductDetails({ product }: { product: Product }) {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
-  const productId = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : NaN;
-  const load = useCallback(() => Number.isSafeInteger(productId) && productId > 0 ? getProductById(productId) : Promise.resolve(null), [productId]);
+  const productId = typeof id === 'string' && id.length > 0 && id.length <= 256 ? id : null;
+  const load = useCallback(() => productId ? getProductById(productId) : Promise.resolve(null), [productId]);
   const { data: product, loading, error, reload } = useFocusedData(load);
 
   if (loading || error || !product) {

@@ -1,7 +1,7 @@
 export type ShoppingItemSource = 'manual' | 'recipe';
 
 export interface ShoppingItem {
-  id: number;
+  id: string;
   name: string;
   quantity: number | null;
   unit: string | null;

@@ -22,6 +22,7 @@ function setup(permission = true, existingDatabase) {
     async requestPermissionsAsync() { return { granted: allowed, status: allowed ? 'granted' : 'denied' }; },
     async scheduleNotificationAsync(request) { const id = `reminder-${++nextId}`; scheduled.set(id, request); return id; },
     async cancelScheduledNotificationAsync(id) { canceled.push(id); scheduled.delete(id); },
+    async getAllScheduledNotificationsAsync() { return [...scheduled].map(([identifier, request]) => ({ identifier, content: request.content })); },
   };
   const db = {
     async execAsync(sql) { connection.exec(sql); }, async closeAsync() {},
@@ -57,7 +58,7 @@ function setup(permission = true, existingDatabase) {
     vm.runInThisContext(`(function(require, module, exports) {${source}\n})`, { filename })(localRequire, module, module.exports);
     return module.exports;
   }
-  return { connection, scheduled, canceled, load: (filename) => load(path.join(root, filename)), setPermission: (value) => { allowed = value; } };
+  return { connection, scheduled, canceled, notifications, load: (filename) => load(path.join(root, filename)), setPermission: (value) => { allowed = value; } };
 }
 
 function futureDate(days) {
@@ -69,6 +70,23 @@ function futureDate(days) {
 
 const input = { name: 'Milk', brand: null, barcode: null, category: 'Dairy', quantity: 1,
   unit: 'L', expirationDate: futureDate(7), storageLocation: 'Refrigerator', imageUrl: null, notes: null };
+
+test('account deletion cancels only the deleted owner reminders including unmapped scheduled notifications', async () => {
+  const app = setup();
+  try {
+    const state = app.load('db/local-state.ts'); const products = app.load('db/products.ts');
+    const reminders = app.load('services/notifications.ts');
+    state.setLocalUserId('a'); const a = await products.createProduct(input); await reminders.syncProductReminder(a);
+    state.setLocalUserId('b'); const b = await products.createProduct(input); await reminders.syncProductReminder(b);
+    const aId = app.connection.prepare("SELECT notification_id FROM products WHERE user_id='a'").get().notification_id;
+    const bId = app.connection.prepare("SELECT notification_id FROM products WHERE user_id='b'").get().notification_id;
+    app.scheduled.set('orphan-a', { content: { data: { kind: 'smartpantry-expiration', userId: 'a' } } });
+    await app.load('services/account-lock.ts').blockAccount('a');
+    await reminders.cancelDeletedAccountReminders('a');
+    assert.ok(app.canceled.includes(aId)); assert.ok(app.canceled.includes('orphan-a'));
+    assert.ok(!app.canceled.includes(bId)); assert.ok(app.scheduled.has(bId));
+  } finally { app.connection.close(); }
+});
 
 test('reminder date and copy handle timing and past dates', () => {
   const reminders = setup().load('utils/expiration-reminder.ts');
@@ -89,8 +107,8 @@ test('existing products migrate without data loss and settings persist', async (
   const app = setup(true, connection);
   const products = app.load('db/products.ts');
   const settings = app.load('db/notification-settings.ts');
-  assert.equal((await products.getProductById(7)).name, 'Old Milk');
-  assert.equal((await products.getProductById(7)).notificationId, null);
+  assert.equal((await products.getProductById('7')).name, 'Old Milk');
+  assert.equal((await products.getProductById('7')).notificationId, null);
   assert.deepEqual(await settings.getNotificationSettings(), { notificationsEnabled: true, defaultReminderDays: 1 });
   await settings.saveNotificationSettings({ notificationsEnabled: false, defaultReminderDays: 3 });
   assert.deepEqual(await settings.getNotificationSettings(), { notificationsEnabled: false, defaultReminderDays: 3 });
@@ -130,7 +148,7 @@ test('create, edit, delete, consume, waste and global preferences sync reminders
   const wasted = await lifecycle.addProduct(input);
   await lifecycle.finishProduct(wasted, 'wasted');
   assert.equal(app.scheduled.size, 0);
-  assert.deepEqual(app.connection.prepare('SELECT action FROM product_history ORDER BY id').all().map((row) => row.action), ['consumed', 'wasted']);
+  assert.deepEqual(app.connection.prepare('SELECT action FROM product_history ORDER BY action_date, id').all().map((row) => row.action), ['consumed', 'wasted']);
   app.connection.close();
 });
 
@@ -162,12 +180,65 @@ test('clear operations preserve other data and clear all cancels reminders', asy
   await lifecycle.finishProduct(processed, 'consumed');
   assert.equal(app.connection.prepare('SELECT COUNT(*) AS count FROM product_history').get().count, 1);
   await manage.clearProductHistory();
-  assert.equal(app.connection.prepare('SELECT COUNT(*) AS count FROM product_history').get().count, 0);
+  assert.equal(app.connection.prepare('SELECT COUNT(*) AS count FROM product_history WHERE deleted_at IS NULL').get().count, 0);
   await shopping.createShoppingItem({ name: 'Eggs', quantity: null, unit: null, category: null });
   await service.clearAllDataAndReminders();
   for (const table of ['products', 'shopping_list', 'product_history']) {
-    assert.equal(app.connection.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, 0);
+    assert.equal(app.connection.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE deleted_at IS NULL`).get().count, 0);
+    assert.ok(app.connection.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE deleted_at IS NOT NULL`).get().count > 0);
   }
   assert.equal(app.scheduled.size, 0);
   app.connection.close();
+});
+
+test('remote product create/update/delete reconciles one reminder and repeated pulls do not duplicate it', async () => {
+  const app = setup();
+  try {
+    const state = app.load('db/local-state.ts'); state.setLocalUserId('a');
+    const products = app.load('db/products.ts'); const local = app.load('sync/local-store.ts').localSyncStore;
+    const mapper = app.load('sync/sync-mappers.ts'); const reminders = app.load('services/notifications.ts');
+    const id = await products.createProduct(input); const [row] = await local.read('products', 'a'); await products.deleteProduct(id);
+    let remote = { ...mapper.localToCloud('products', row), id: 'remote', updated_at: state.localTimestamp() };
+    await local.apply('products', 'a', remote); await reminders.reconcileAccountReminders(); await reminders.restoreProductReminders();
+    assert.equal(app.scheduled.size, 1); const first = (await products.getProductById('remote')).notificationId;
+    await local.apply('products', 'a', remote); await reminders.reconcileAccountReminders(); await reminders.restoreProductReminders();
+    assert.equal(app.scheduled.size, 1); assert.equal((await products.getProductById('remote')).notificationId, first);
+    remote = { ...remote, expiration_date: futureDate(12), updated_at: state.localTimestamp() };
+    await local.apply('products', 'a', remote); await reminders.restoreProductReminders();
+    assert.equal(app.scheduled.size, 1); assert.ok(app.canceled.includes(first));
+    const now = state.localTimestamp(); remote = { ...remote, updated_at: now, deleted_at: now };
+    await local.apply('products', 'a', remote); await reminders.reconcileAccountReminders();
+    assert.equal(app.scheduled.size, 0); assert.equal(await products.getProductById('remote'), null);
+  } finally { app.connection.close(); }
+});
+
+test('account switches cancel the previous account reminders and restore only the active cache', async () => {
+  const app = setup();
+  try {
+    const state = app.load('db/local-state.ts'); const lifecycle = app.load('services/product-lifecycle.ts');
+    const reminders = app.load('services/notifications.ts'); const products = app.load('db/products.ts');
+    state.setLocalUserId('a'); const a = await lifecycle.addProduct({ ...input, name: 'A Milk' }); assert.equal(app.scheduled.size, 1);
+    state.setLocalUserId('b'); await reminders.reconcileAccountReminders(); assert.equal(app.scheduled.size, 0);
+    const b = await lifecycle.addProduct({ ...input, name: 'B Milk' }); assert.equal(app.scheduled.size, 1);
+    state.setLocalUserId('a'); await reminders.reconcileAccountReminders(); await reminders.restoreProductReminders();
+    assert.equal(app.scheduled.size, 1); assert.ok((await products.getProductById(a)).notificationId); assert.equal(await products.getProductById(b), null);
+    assert.equal([...app.scheduled.values()][0].content.data.userId, 'a');
+    state.setLocalUserId(null); await reminders.reconcileAccountReminders(); assert.equal(app.scheduled.size, 0);
+  } finally { app.connection.close(); }
+});
+
+test('switching accounts during a delete cannot delete another account row with the same ID', async () => {
+  const app = setup();
+  try {
+    const state = app.load('db/local-state.ts'); const products = app.load('db/products.ts');
+    const reminders = app.load('services/notifications.ts'); const lifecycle = app.load('services/product-lifecycle.ts');
+    state.setLocalUserId('a'); await app.load('db/database.ts').initializeDatabase();
+    const now = new Date().toISOString();
+    for (const owner of ['a', 'b']) app.connection.prepare('INSERT INTO products (id,user_id,name,category,expiration_date,created_at,updated_at) VALUES (?,?,?,?,?,?,?)').run('shared', owner, `${owner} Milk`, 'Dairy', futureDate(7), now, now);
+    await reminders.syncProductReminder('shared'); const cancel = app.notifications.cancelScheduledNotificationAsync;
+    app.notifications.cancelScheduledNotificationAsync = async (id) => { await cancel(id); state.setLocalUserId('b'); };
+    await assert.rejects(lifecycle.removeProduct('shared'), /account changed/);
+    assert.equal((await products.getProductById('shared')).name, 'b Milk');
+    state.setLocalUserId('a'); assert.equal((await products.getProductById('shared')).name, 'a Milk');
+  } finally { app.connection.close(); }
 });

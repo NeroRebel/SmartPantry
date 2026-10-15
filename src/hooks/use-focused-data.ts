@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { subscribeLocalChanges } from '@/db/local-state';
 
 export function useFocusedData<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T>();
@@ -28,6 +29,7 @@ export function useFocusedData<T>(load: () => Promise<T>) {
     };
     refreshRef.current = () => void refresh();
     void refresh();
+    const unsubscribeData = subscribeLocalChanges(() => { void refresh(); });
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh();
     });
@@ -44,6 +46,7 @@ export function useFocusedData<T>(load: () => Promise<T>) {
     return () => {
       active = false;
       subscription.remove();
+      unsubscribeData();
       clearTimeout(timer);
     };
   }, [load]));

@@ -3,7 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { inspectAuthCallback, validateDisplayName, validateNewPassword } from '@/utils/auth';
+import { hasEmailIdentity, inspectAuthCallback, validateDisplayName, validateNewPassword } from '@/utils/auth';
 import { isValidVerificationEmail } from '@/utils/email-verification';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -51,12 +51,25 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
         });
       };
       diagnostics('received');
+      async function refreshEmailChangeSession(): Promise<Session | null> {
+        if (!info.emailChangeDetected) return null;
+        const auth = requireClient().auth;
+        const { data: current, error: sessionError } = await auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!current.session) return null;
+        // A sessionless confirmation can still update a previously signed-in account.
+        const { data, error } = await auth.refreshSession();
+        if (error) throw error;
+        sessionCreated = !!data.session;
+        return data.session;
+      }
       try {
         const callback = info.callback;
         if (info.linkExpired) failure('otp_expired');
         if (!callback || callback.type === 'error') failure(info.recoveryDetected ? 'recovery_link_invalid' : 'oauth_callback_invalid');
         if (callback.type === 'empty') {
           if (info.recoveryDetected) failure('recovery_link_invalid');
+          if (info.emailChangeDetected) return await refreshEmailChangeSession();
           if (info.emailConfirmationDetected) return null;
           failure('oauth_callback_invalid');
         }
@@ -67,12 +80,13 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
         if (error) {
           // A confirmed email can return a code that this installation cannot exchange.
           const code = error.code;
-          if (!info.recoveryDetected && info.emailConfirmationDetected && callback.type === 'code' &&
-            (error.name === 'AuthPKCECodeVerifierMissingError' || ['flow_state_not_found', 'flow_state_expired', 'bad_code_verifier'].includes(code ?? ''))) return null;
+          if (!info.recoveryDetected && (info.emailConfirmationDetected || info.emailChangeDetected) && callback.type === 'code' &&
+            (error.name === 'AuthPKCECodeVerifierMissingError' || ['flow_state_not_found', 'flow_state_expired', 'bad_code_verifier'].includes(code ?? ''))) return await refreshEmailChangeSession();
           throw error;
         }
         if (!data.session) {
           if (info.recoveryDetected) failure('recovery_link_invalid');
+          if (info.emailChangeDetected) return await refreshEmailChangeSession();
           if (info.emailConfirmationDetected) return null;
           failure('oauth_callback_error');
         }
@@ -155,6 +169,30 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       if (error) throw error;
       if (!data.user) failure('profile_update_failed');
       return data.user;
+    },
+    async updateEmail(email: string) {
+      if (!isValidVerificationEmail(email)) failure('email_address_invalid');
+      const auth = requireClient().auth;
+      const { data: current, error: sessionError } = await auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!current.session) failure('session_expired');
+      if (!hasEmailIdentity(current.session.user)) failure('account.googleManaged');
+      const { data, error } = await auth.updateUser({ email: email.trim() }, {
+        emailRedirectTo: web ? redirectTo : emailConfirmationRedirectUri,
+      });
+      if (error) throw error;
+      if (!data.user) failure('session_expired');
+      return data.user;
+    },
+    async clearDeletedSession(userId: string) {
+      const { data } = await requireClient().auth.getSession();
+      if (data.session && data.session.user.id !== userId) return false;
+      const { error } = await requireClient().auth.signOut({ scope: 'local' });
+      const remaining = await requireClient().auth.getSession();
+      if (remaining.error) throw remaining.error;
+      if (remaining.data.session) throw error ?? Object.assign(new Error('Session cleanup incomplete'), { code: 'session_expired' });
+      callbacks.clear(); recoveryCallbacks.clear();
+      return true;
     },
     async signInWithGoogle() {
       googleRequests++;

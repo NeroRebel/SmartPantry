@@ -1,6 +1,6 @@
 # SmartPantry Authentication Setup
 
-Authentication uses Supabase Auth only. Inventory, shopping items, history and settings remain in local SQLite. Signing out does not remove them. They are shared local device data in this phase, not isolated per account. No cloud tables or synchronization are introduced.
+Authentication uses Supabase Auth. Inventory, shopping items and history remain SQLite-first, with account-isolated caches and offline-first Supabase synchronization; see [cloud-sync.md](cloud-sync.md). Signing out does not delete those caches. Device appearance/language/notification preferences remain local and are not cloud-synced. Auth metadata remains the display-name/avatar source of truth; the profiles table is not mirrored.
 
 ## Password Account Management
 
@@ -189,3 +189,205 @@ Passwords are passed to Supabase and are never stored by app code. Auth failures
 - Verify local products, shopping list, history and settings are unchanged across sign-out and a different login.
 
 References: [Supabase React Native](https://supabase.com/docs/guides/auth/quickstarts/react-native), [native deep linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking), [Google provider](https://supabase.com/docs/guides/auth/social-login/auth-google), [email templates](https://supabase.com/docs/guides/auth/auth-email-templates), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls), [resend](https://supabase.com/docs/reference/javascript/auth-resend), [SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [Expo protected routes](https://docs.expo.dev/router/advanced/protected/).
+
+## Change Email
+
+Profile > Account > Change email opens `/settings/change-email`. It is shown only
+when the existing shared identity helper finds an email identity (including an
+email identity linked to Google). Google-only accounts do not get either email
+or password changes. The service checks the identity again before submitting.
+
+The existing AuthProvider calls:
+
+```ts
+const { data, error } = await supabase.auth.updateUser(
+  { email: newEmail.trim() },
+  { emailRedirectTo: 'smartpantry://auth/callback' },
+);
+```
+
+Web retains the existing explicit browser callback. No local email is invented:
+the provider adopts only the actual SDK user response/events. With Secure Email
+Change enabled, Supabase normally requires confirmation at BOTH addresses; with
+it disabled, confirmation is sent only to the new address. The screen explains
+both possibilities without assuming the project's dashboard setting.
+
+Keep `smartpantry://auth/callback` in Authentication > URL Configuration and
+review Authentication > Email > Secure Email Change and the Change Email Address
+template. Keep the template's standard `{{ .ConfirmationURL }}` link and configure
+SMTP for real recipients. The shared callback handles PKCE and legacy sessions
+as before, recognizes `type=email_change`, and does not claim the entire change
+is complete when a link returns without a session (the other address may still
+need confirmation). If a signed-in account receives a sessionless email-change
+callback, the shared handler refreshes its real SDK session once to obtain the
+actual confirmed email; it never copies the requested address into the profile.
+Google, signup and password-recovery callbacks are unchanged.
+Use new emails/links, opened in the same Android installation for PKCE. A Windows
+browser cannot launch an Android emulator's custom scheme.
+
+## Delete Account: Deployment Required
+
+Profile > Delete account opens `/settings/delete-account`. The user first reads
+the deletion explanation and taps the destructive continuation, then must type
+the exact literal `DELETE` and tap Delete my account. Neither this screen nor the
+mobile service contains admin credentials or deletes Auth users directly.
+
+### Schema Verification
+
+The user supplied the existing FK definitions for all four public tables:
+`user_id REFERENCES auth.users(id) ON DELETE CASCADE`, including
+`profiles.user_id` as its primary key. No table/schema change is needed.
+Live database access was not available during implementation. Before deployment,
+run `supabase/verify-account-cascades.sql` in the target project's SQL Editor.
+This read-only catalog check raises an error unless all four actual FKs match.
+Do not enable the deployment flag below until it passes. Recheck after schema
+changes; this flag is an operator attestation, not a substitute for live SQL.
+
+### Function Deployment
+
+From the project root, with Supabase CLI authentication configured:
+
+```powershell
+npx supabase@latest login
+npx supabase@latest secrets set ACCOUNT_DELETE_CASCADE_VERIFIED=true --project-ref YOUR_PROJECT_REF
+npx supabase@latest functions deploy delete-account --project-ref YOUR_PROJECT_REF --no-verify-jwt
+```
+
+`supabase/config.toml` sets the same gateway option. This does NOT make deletion
+unauthenticated: `delete-account` requires a bearer JWT and validates it by calling
+Supabase Auth `getUser(jwt)`. The handler rejects missing/invalid users, missing
+confirmation and any extra body keys (including an arbitrary user ID). Gateway
+legacy JWT verification is disabled to support the project's current key setup;
+authentication is performed inside the function.
+
+Hosted Edge Functions provide `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+server-side. Ensure they are available in the function environment. The only
+additional secret is `ACCOUNT_DELETE_CASCADE_VERIFIED=true` after the preflight.
+Never add the admin key to Expo `.env`, app config, source code, logs or Git.
+For local Edge development use a private ignored secrets file outside app env.
+The app continues using only its existing URL and publishable key. No packages
+were added and no remote function/SQL was deployed automatically.
+
+### Server Cleanup and Security
+
+The function derives the user ID exclusively from validated Auth data. It lists
+the private `avatars` bucket under that UUID, paginates and walks nested folders,
+rejects traversal/separator names, removes all owned paths in bounded batches,
+and checks again for files before deleting Auth. It never reads an avatar path
+from client input or trusts editable metadata as authority. It removes no other
+user's files. Existing Storage RLS need not be weakened; the admin client is
+server-only. Listing/deletion errors abort Auth deletion, avoiding knowingly
+orphaned personal files. Auth is hard-deleted with `admin.deleteUser(id, false)`;
+the verified cascades remove profiles, products, shopping_list and product_history.
+Other owned buckets, if added later, must get explicit cleanup before enabling
+account deletion for them. Resource limits abort instead of silently skipping.
+
+Storage and Auth deletion are not a single transaction. If Storage succeeds but
+Auth fails, the account/local data remain, but the old avatar may already be
+gone. Retry deletion or upload a new photo. Concurrent uploads on another device
+can cause a retry; an ownership conflict during Auth deletion returns failure.
+The function never logs requests, provider errors, tokens or keys.
+
+Already-issued JWTs can remain cryptographically valid until expiry after Auth
+deletion; refresh sessions are removed. Use an appropriate short JWT lifetime.
+For immediate revocation of sensitive Storage requests from other clients, add
+a server-side session-existence policy according to Supabase guidance; no RLS
+policy was weakened or silently replaced here. Database inserts still require
+the referenced Auth user to exist. See [Supabase deleting users](https://supabase.com/docs/guides/auth/managing-user-data#deleting-users).
+
+### Device Cleanup and Failure Boundary
+
+The app blocks writes/profile uploads for the account, drains existing profile
+operations, pauses/aborts and waits for the existing sync service, then calls the
+Edge Function. Only `{ deleted: true, userId: expectedUserId }` is accepted as
+server confirmation. The function request explicitly pins that account's current
+JWT in its Authorization header so a concurrent login cannot retarget deletion
+to another user; the JWT is never logged. A failed request never starts local deletion and resumes
+normal local operation/sync. Local passwords/tokens are never logged or stored
+by the deletion implementation.
+
+After confirmation, SQLite records a cleanup receipt. The app drains reminder
+work, cancels only that user's product IDs and any orphan reminders tagged with
+that user, then hard-deletes that user's active/tombstone rows in all three local
+tables and `last_sync:userId` metadata in one transaction. A matching legacy
+import flag becomes the non-user sentinel `retired`, NOT an absent flag: another
+account can never re-adopt the deleted account's legacy data. No other user's
+cache or device preferences are wiped. Private avatar URLs are not permanently
+stored by the existing avatar resolver.
+
+The SDK clears only the deleted account's local session, using `signOut` with
+`scope: 'local'`. The installed SDK clears local storage even if the server
+signout endpoint rejects a deleted user or is offline; the service verifies no
+session remains before accepting another signout error. A different account's
+current session is not cleared. The existing protected router returns to Sign
+In, where normal completion shows Account deleted. Sync remains paused for the
+deleted ID. Account settings and unrelated SQLite preferences remain intact.
+
+The receipt remains until cleanup AND session clearing finish. A cleanup failure
+keeps the account blocked; the screen offers a retry via the same final action
+without repeating cloud deletion. Startup retries receipts before exposing the
+local cache or starting sync. Persistent device-storage/notification failures
+show the existing local initialization retry UI rather than admitting sync.
+
+Distributed limitation: if the server deletes the account but its response is
+lost, the app cannot claim success or safely assume confirmation. It keeps local
+data. Similarly, process termination/disk failure between response receipt and
+receipt persistence leaves a small recovery window. Verify server outcome before
+administrative cleanup; no other account ever claims those owned rows. This is
+not an exactly-once deletion protocol across devices/services. OS image caches,
+external backups, logs/retention controlled by Supabase and other devices' offline
+caches are not securely erased by this device's cleanup.
+
+### Manual Account-Management Checklist
+
+- Email account: request a different email, confirm old/new links as configured,
+  verify Profile's actual email changes and login uses the confirmed new email.
+- Try invalid/unchanged/duplicate email, rate limiting, expired session and offline.
+- Google-only: no Change Email or Change Password actions; Google login still works.
+- Create products, shopping items, history, reminders and avatar; sync, then use a
+  disposable account to test both deletion confirmation steps (do not use real data).
+- Verify Auth user, all four public tables and every owned avatars file are gone.
+- Verify this user's local active/tombstone rows and last-sync record are gone,
+  reminders canceled, session cleared, Sign In shown, theme/language preserved.
+- Switch to another cached account: its rows, history, shopping items and cloud
+  files must still exist. Reminder restoration for that account must still work.
+- Simulate Edge failure/undeployed function/network failure: local data remain.
+- Simulate Storage failure: Auth deletion is aborted. Simulate cleanup failure:
+  retry or restart completes the confirmed receipt without another cloud call.
+- Start Sync now immediately before deletion; verify no requests restart after it.
+- Regression-check Google, confirmation, recovery, password change and avatar upload
+  on Android and check all five languages, light/dark/high-contrast/accent variants.
+
+Tests run without admin credentials. Real email delivery, hosted function deploy,
+live cascades/RLS and destructive device tests require the deployment and a
+disposable test account; they were not executed automatically.
+
+### Account-Management File Manifest and Checks
+
+Created:
+
+- `src/app/settings/change-email.tsx`, `src/app/settings/delete-account.tsx`
+- `src/components/account-styles.ts`, `src/utils/account.ts`
+- `src/services/account-lock.ts`, `src/services/account-deletion.ts`
+- `src/db/account-cleanup.ts`, `src/i18n/account.ts`
+- `supabase/functions/delete-account/index.ts`, `supabase/functions/delete-account/handler.ts`
+- `supabase/config.toml`, `supabase/verify-account-cascades.sql`
+- `tests/account-management.test.cjs`
+
+Modified (including existing uncommitted sync files, preserved in place):
+
+- `src/app/profile.tsx`, `src/app/_layout.tsx`, `src/app/auth/callback.tsx`, `src/app/(auth)/sign-in.tsx`
+- `src/auth/auth-context.tsx`, `src/components/auth-form.tsx`
+- `src/services/auth.ts`, `src/services/notifications.ts`
+- `src/db/owned-data.ts`, `src/db/local-owner.ts`, `src/hooks/use-local-account.ts`
+- `src/sync/local-store.ts`, `src/sync/sync-service.ts`, `src/sync/sync-context.tsx`
+- `src/utils/auth.ts`, `src/i18n/index.ts`, `tsconfig.json`, `eslint.config.js`
+- `tests/auth.test.cjs`, `tests/notifications.test.cjs`, `tests/local-sync-migration.test.cjs`, `tests/sync-service.test.cjs`, `tests/profile-sync.test.cjs`
+- `docs/auth-setup.md`, `docs/cloud-sync.md`
+
+Automated verification: app TypeScript, Expo lint, 155 Node tests, and Android
+bundle export. The Edge handler has a separate strict TypeScript check; its
+adapter was also checked against the installed Supabase types with an in-memory
+Deno environment declaration. Deno CLI/runtime and live hosted deployment were
+not available, so actual Edge execution remains a deployment check. No new app
+dependencies, schema migrations or automatic commits.

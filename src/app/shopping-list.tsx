@@ -12,6 +12,7 @@ import type { AppColors } from '@/theme/theme';
 import { clearCompletedShoppingItems, createShoppingItem, deleteShoppingItem, getShoppingItems, toggleShoppingItemCompleted, updateShoppingItem } from '@/db/shopping-list';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { NewShoppingItem, ShoppingItem } from '@/types/shopping-item';
+import { assertLocalAccount, getLocalUserId } from '@/db/local-state';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -19,6 +20,7 @@ function goBack() {
 }
 
 export default function ShoppingListScreen() {
+  const owner = getLocalUserId();
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   const { data, setData: setItems, loading, error, reload } = useFocusedData(getShoppingItems);
@@ -26,7 +28,7 @@ export default function ShoppingListScreen() {
   const [query, setQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
-  const [workingId, setWorkingId] = useState<number | null>(null);
+  const [workingId, setWorkingId] = useState<string | null>(null);
 
   const toBuyCount = items.filter((item) => !item.completed).length;
   const purchasedCount = items.length - toBuyCount;
@@ -44,6 +46,7 @@ export default function ShoppingListScreen() {
   }
 
   async function saveItem(input: NewShoppingItem) {
+    assertLocalAccount(owner);
     if (editing) await updateShoppingItem(editing.id, input);
     else await createShoppingItem(input);
     setItems(await getShoppingItems());
@@ -52,7 +55,7 @@ export default function ShoppingListScreen() {
   }
 
   async function toggle(item: ShoppingItem) {
-    if (workingId !== null) return;
+    if (workingId !== null || owner !== getLocalUserId()) return;
     setWorkingId(item.id);
     setItems((current) => (current ?? []).map((entry) => entry.id === item.id ? { ...entry, completed: !entry.completed } : entry));
     try {
@@ -70,7 +73,7 @@ export default function ShoppingListScreen() {
     Alert.alert(t('shopping.deleteItem'), t('shopping.deleteConfirm', { name: item.name }), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
-        if (workingId !== null) return;
+        if (workingId !== null || owner !== getLocalUserId()) return;
         setWorkingId(item.id);
         void deleteShoppingItem(item.id).then(() => {
           setItems((current) => (current ?? []).filter((entry) => entry.id !== item.id));
@@ -84,8 +87,8 @@ export default function ShoppingListScreen() {
     Alert.alert(t('shopping.clearItems'), t('shopping.clearConfirm', { count: purchasedCount }), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('shopping.clearPurchased'), style: 'destructive', onPress: () => {
-        if (workingId !== null) return;
-        setWorkingId(-1);
+        if (workingId !== null || owner !== getLocalUserId()) return;
+        setWorkingId('__clear_purchased__');
         void clearCompletedShoppingItems().then(() => {
           setItems((current) => (current ?? []).filter((item) => !item.completed));
           reload();
