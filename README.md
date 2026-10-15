@@ -187,25 +187,26 @@ Example structure:
 
 The application does not require Supabase to complete normal pantry operations. Cloud synchronization happens independently of local CRUD.
 
-Tech Stack
-Area	Technology
-Mobile	React Native
-Framework	Expo
-Language	TypeScript
-Navigation	Expo Router
-Local database	Expo SQLite
-Backend	Supabase
-Authentication	Supabase Auth
-Cloud database	Supabase Postgres
-File storage	Supabase Storage
-Barcode scanning	Expo Camera
-Notifications	Expo Notifications
-Product data	Open Food Facts
-Recipes	TheMealDB
-Localization	Expo Localization + custom i18n
-Version control	Git / GitHub
+## Tech Stack
+| Area | Technology |
+|---|---|
+| Mobile | React Native |
+| Framework | Expo |
+| Language | TypeScript |
+| Navigation | Expo Router |
+| Local database | Expo SQLite |
+| Backend | Supabase |
+| Authentication | Supabase Auth |
+| Cloud database | Supabase Postgres |
+| File storage | Supabase Storage |
+| Barcode scanning | Expo Camera |
+| Notifications | Expo Notifications |
+| Product data | Open Food Facts |
+| Recipes | TheMealDB |
+| Localization | Expo Localization + custom i18n |
+| Version control | Git / GitHub |
 
-Cloud Backend
+## Cloud Backend
 Supabase currently stores:
 auth.users
 profiles
@@ -225,7 +226,9 @@ The account-deletion flow is implemented through a Supabase Edge Function and re
 - Avatar files
 - Local account cache
 - Account-specific notifications
-Offline-First Synchronization
+
+## Offline-First Synchronization
+
 The synchronization architecture intentionally keeps SQLite as the runtime database.
 SQLite
   ↕
@@ -240,15 +243,16 @@ Current synchronization strategy:
 - Current conflict strategy: Last Write Wins
 - Deleted records use deleted_at tombstones
 - Failed synchronization does not block local usage
-Download
-Android
+
+## Download
+### Android
 The latest Android APK is available from the repository's GitHub Releases page.
 Recommended release filename:
 SmartPantry-v1.0.0.apk
 
 Android may ask you to allow installation from unknown sources when installing an APK outside Google Play.
 
-Development
+## Development
 Requirements
 - Node.js 22.13+
 - npm
@@ -270,7 +274,9 @@ EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 Never place server-side or administrative Supabase secrets in the mobile application.
-Running the Development Build
+
+## Running the Development Build
+
 SmartPantry uses native Expo modules and should be tested using a development build, not Expo Go.
 Build Android:
 npx expo run:android
@@ -278,7 +284,7 @@ npx expo run:android
 Start Metro for the development client:
 npx expo start --dev-client
 
-Android Release Build
+## Android Release Build
 From:
 android/
 
@@ -289,7 +295,7 @@ Release APK output:
 android/app/build/outputs/apk/release/app-release.apk
 
 Release signing requires the production/upload keystore configuration described in the release documentation.
-Project Structure
+## Project Structure
 SmartPantry/
 ├── assets/
 │   └── images/
@@ -319,14 +325,14 @@ SmartPantry/
 ├── package.json
 └── project.md
 
-Documentation
+## Documentation
 Additional technical documentation is available in:
 - [`docs/auth-setup.md`](docs/auth-setup.md) — authentication, OAuth and account management
 - [`docs/cloud-sync.md`](docs/cloud-sync.md) — offline-first synchronization architecture
 - [`docs/data-handling.md`](docs/data-handling.md) — application data handling
 - [`docs/polish-qa.md`](docs/polish-qa.md) — UI/UX QA and polish pass
 - [`docs/release-readiness.md`](docs/release-readiness.md) — Android release preparation and verification
-Security
+## Security
 SmartPantry follows several security rules:
 - Passwords are handled by Supabase Auth
 - Passwords are never stored by SmartPantry
@@ -336,7 +342,7 @@ SmartPantry follows several security rules:
 - Avatar storage uses user-specific access policies
 - Account deletion uses a server-side Edge Function
 - .env, keystores and release artifacts are excluded from Git
-External Services
+## External Services
 Open Food Facts
 Used for barcode-based and name-based product lookup.
 Product coverage depends on the Open Food Facts database and may vary by region.
@@ -351,7 +357,7 @@ Used for:
 - Edge Functions
 - Cloud synchronization
 
-Known Limitations
+## Known Limitations
 - The first synchronization implementation uses whole-row Last Write Wins conflict resolution.
 - Clock skew between devices may influence conflict resolution.
 - Simultaneous offline lifecycle actions on multiple devices may produce duplicate history events.
@@ -359,7 +365,7 @@ Known Limitations
 - Recipe matching currently uses lightweight ingredient normalization rather than advanced NLP.
 - iOS has not yet received the same level of physical-device testing as Android.
 
-Future Improvements
+## Future Improvements
 Possible future development includes:
 - AI-generated recipes
 - Improved ingredient matching
