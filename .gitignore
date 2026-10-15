@@ -40,6 +40,10 @@ yarn-error.*
 !.env.example
 .env*.local
 
+*.keystore
+*.jks
+*.apk
+*.aab
 # typescript
 *.tsbuildinfo
 

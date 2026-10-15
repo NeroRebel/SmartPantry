@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/auth/auth-context';
@@ -25,7 +26,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const profile = !authLoading && user ? getUserProfile(user) : null;
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { data, loading, error, reload } = useFocusedData(getProductStats);
   const stats = data ?? emptyStats;
   const pantryStatus = [
@@ -43,7 +44,7 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.content,
           // Leave room for the absolute tab bar and its raised Scan icon.
-          { paddingBottom: Math.max(Platform.OS === 'ios' ? 86 : 72, insets.bottom) + 36 },
+          { paddingBottom: tabBarHeight + 36 },
         ]}
       >
         <View style={styles.header}>

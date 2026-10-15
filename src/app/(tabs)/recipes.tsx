@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useTranslation } from 'react-i18next';
 
 import { RecipeCard } from '@/components/recipe-card';
@@ -36,7 +37,7 @@ export default function RecipesScreen() {
   const { data: allData, loading: allLoading, error: allError, reload: reloadAll } = useFocusedData(loadAll, { localChanges: false, midnight: false, remote: true });
   const { data: pantryData, loading: pantryLoading, error: pantryError, reload: reloadPantry } = useFocusedData(loadPantry, { remote: true });
   const { data: remoteCategories } = useFocusedData(loadCategories, { localChanges: false, midnight: false, remote: true });
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const searching = mode === 'all' && (query.trim() !== debouncedQuery || allData?.key !== requestKey);
   const pantryPending = mode === 'pantry' && !pantryData;
   const pending = mode === 'pantry' ? pantryPending : searching;
@@ -61,7 +62,7 @@ export default function RecipesScreen() {
         keyboardDismissMode="on-drag"
         refreshing={loading && recipes.length > 0}
         onRefresh={reload}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(Platform.OS === 'ios' ? 86 : 72, insets.bottom) + 36 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 36 }]}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text accessibilityRole="header" style={styles.title}>{t('recipes.headline')}{'\n'}<Text style={styles.accent}>{t('recipes.headlineAccent')}</Text></Text>

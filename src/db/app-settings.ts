@@ -8,6 +8,7 @@ interface SettingsRow {
   themeMode: string;
   highContrast: number;
   accentColor: string;
+  immersiveMode?: number;
 }
 
 const languages: readonly Language[] = ['en', 'sk', 'ru', 'uk', 'hu'];
@@ -22,6 +23,7 @@ export function normalizeAppSettings(row: SettingsRow, deviceLanguage = 'en'): A
     language: languages.includes(language as Language) ? language as Language : 'en',
     themeMode: modes.includes(row.themeMode as ThemeMode) ? row.themeMode as ThemeMode : 'dark',
     highContrast: row.highContrast === 1,
+    immersiveMode: row.immersiveMode === 1,
     accentColor: accents.includes(row.accentColor as AccentColor) ? row.accentColor as AccentColor : 'orange',
   };
 }
@@ -30,16 +32,16 @@ export async function getAppSettings(deviceLanguage = 'en'): Promise<AppSettings
   const db = await initializeDatabase();
   const row = await db.getFirstAsync<SettingsRow>(`SELECT notifications_enabled AS notificationsEnabled,
     default_reminder_days AS defaultReminderDays, language, theme_mode AS themeMode,
-    high_contrast AS highContrast, accent_color AS accentColor FROM notification_settings WHERE id = 1`);
+    high_contrast AS highContrast, accent_color AS accentColor, immersive_mode AS immersiveMode FROM notification_settings WHERE id = 1`);
   if (!row) throw new Error('App settings are unavailable.');
   return normalizeAppSettings(row, deviceLanguage);
 }
 
-export async function saveAppearanceSettings(settings: Pick<AppSettings, 'language' | 'themeMode' | 'highContrast' | 'accentColor'>): Promise<void> {
+export async function saveAppearanceSettings(settings: Pick<AppSettings, 'language' | 'themeMode' | 'highContrast' | 'accentColor' | 'immersiveMode'>): Promise<void> {
   if (!languages.includes(settings.language) || !modes.includes(settings.themeMode) || !accents.includes(settings.accentColor)) {
     throw new Error('Invalid appearance settings.');
   }
   const db = await initializeDatabase();
-  await db.runAsync(`UPDATE notification_settings SET language = ?, theme_mode = ?, high_contrast = ?, accent_color = ? WHERE id = 1`,
-    settings.language, settings.themeMode, settings.highContrast ? 1 : 0, settings.accentColor);
+  await db.runAsync(`UPDATE notification_settings SET language = ?, theme_mode = ?, high_contrast = ?, accent_color = ?, immersive_mode = ? WHERE id = 1`,
+    settings.language, settings.themeMode, settings.highContrast ? 1 : 0, settings.accentColor, settings.immersiveMode ? 1 : 0);
 }

@@ -1,10 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { ColorValue, Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { useThemedStyles } from '@/theme/theme-context';
+import { useAppTheme, useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
+import { getTabBarLayout } from '@/utils/system-ui';
+import { useSystemUI } from '@/theme/system-ui-context';
 
 type TabIconName = keyof typeof Ionicons.glyphMap;
 
@@ -37,6 +40,10 @@ function TabIcon({
 
 export default function TabLayout() {
   const { colors, styles } = useThemedStyles(createStyles);
+  const insets = useSafeAreaInsets();
+  const { settings } = useAppTheme();
+  const immersive = Platform.OS === 'android' && settings.immersiveMode;
+  const { bottomInset } = useSystemUI();
   const { t } = useTranslation();
   return (
     <Tabs
@@ -46,7 +53,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.secondary,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, getTabBarLayout(immersive ? bottomInset : insets.bottom, immersive)],
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -112,10 +120,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     position: 'absolute',
     zIndex: 2,
     elevation: 9,
-    height: Platform.select({ ios: 86, default: 72 }),
     paddingTop: 8,
-    paddingBottom: Platform.select({ ios: 24, default: 12 }),
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderTopColor: colors.border,
   },
   tabBarLabel: {

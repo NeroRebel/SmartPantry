@@ -3,7 +3,8 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme, useThemedStyles } from '@/theme/theme-context';
@@ -42,7 +43,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function MoreScreen() {
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { colors, styles } = useThemedStyles(createStyles);
   const { settings: appearance } = useAppTheme();
   const { t } = useTranslation();
@@ -78,7 +79,7 @@ export default function MoreScreen() {
   }
 
   return <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 108 + insets.bottom }]}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 36 }]}>
       <Text accessibilityRole="header" style={styles.title}>{t('nav.more')}</Text>
       {profile && <Pressable accessibilityRole="button" accessibilityLabel={t('auth.profile')} onPress={() => router.push('/profile')} style={styles.profile}>
         <UserAvatar key={profile.avatarUrl} url={profile.avatarUrl} name={profile.name || t('auth.user')} /><View style={styles.rowCopy}><Text style={styles.rowTitle}>{profile.name || t('auth.user')}</Text><Text style={styles.rowSubtitle}>{profile.email}</Text></View><Ionicons name="chevron-forward" size={20} color={colors.secondary} />

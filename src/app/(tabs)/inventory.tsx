@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useTranslation } from 'react-i18next';
 
 import { ProductCard } from '@/components/product-card';
@@ -23,7 +24,7 @@ export default function InventoryScreen() {
   const [filter, setFilter] = useState<'all' | ProductStatus>('all');
   const { data, loading, error, reload } = useFocusedData(getProducts);
   const allProducts = data ?? [];
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const search = query.trim().toLowerCase();
   const products = allProducts.filter((product) =>
     (filter === 'all' || getProductStatus(product.expirationDate) === filter) &&
@@ -111,7 +112,7 @@ export default function InventoryScreen() {
           keyboardDismissMode="on-drag"
           refreshing={loading}
           onRefresh={reload}
-          contentContainerStyle={{ paddingBottom: Math.max(Platform.OS === 'ios' ? 86 : 72, insets.bottom) + 36 }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 36 }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="leaf-outline" size={36} color={colors.secondary} />

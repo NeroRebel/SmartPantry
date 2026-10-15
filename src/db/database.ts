@@ -57,7 +57,8 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
             language TEXT,
             theme_mode TEXT NOT NULL DEFAULT 'dark',
             high_contrast INTEGER NOT NULL DEFAULT 0,
-            accent_color TEXT NOT NULL DEFAULT 'orange'
+            accent_color TEXT NOT NULL DEFAULT 'orange',
+            immersive_mode INTEGER NOT NULL DEFAULT 0 CHECK(immersive_mode IN (0, 1))
           );
           INSERT OR IGNORE INTO notification_settings (id) VALUES (1);
         `);
@@ -69,6 +70,7 @@ export function initializeDatabase(): Promise<SQLiteDatabase> {
         for (const [name, declaration] of [
           ['language', 'TEXT'], ['theme_mode', "TEXT NOT NULL DEFAULT 'dark'"],
           ['high_contrast', 'INTEGER NOT NULL DEFAULT 0'], ['accent_color', "TEXT NOT NULL DEFAULT 'orange'"],
+          ['immersive_mode', 'INTEGER NOT NULL DEFAULT 0 CHECK(immersive_mode IN (0, 1))'],
         ] as const) {
           if (!settingsColumns.some((column) => column.name === name)) {
             await db.execAsync(`ALTER TABLE notification_settings ADD COLUMN ${name} ${declaration}`);

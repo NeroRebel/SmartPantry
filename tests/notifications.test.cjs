@@ -76,6 +76,20 @@ function futureDate(days) {
   return `${year}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+test('immersive preference defaults off, persists, and leaves notification preferences intact', async () => {
+  const app = setup();
+  const appearance = app.load('db/app-settings.ts');
+  const initial = await appearance.getAppSettings();
+  assert.equal(initial.immersiveMode, false);
+  await appearance.saveAppearanceSettings({ ...initial, immersiveMode: true });
+  assert.equal((await appearance.getAppSettings()).immersiveMode, true);
+  assert.equal((await appearance.getAppSettings()).notificationsEnabled, initial.notificationsEnabled);
+  assert.equal((await appearance.getAppSettings()).defaultReminderDays, initial.defaultReminderDays);
+  await appearance.saveAppearanceSettings({ ...initial, immersiveMode: false });
+  assert.equal((await appearance.getAppSettings()).immersiveMode, false);
+  app.connection.close();
+});
+
 const input = { name: 'Milk', brand: null, barcode: null, category: 'Dairy', quantity: 1,
   unit: 'L', expirationDate: futureDate(7), storageLocation: 'Refrigerator', imageUrl: null, notes: null };
 

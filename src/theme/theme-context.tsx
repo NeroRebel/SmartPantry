@@ -9,10 +9,11 @@ import { createTheme, resolveThemeMode, type AppColors } from './theme';
 
 const defaults: AppSettings = {
   language: 'en', themeMode: 'dark', highContrast: false, accentColor: 'orange',
+  immersiveMode: false,
   notificationsEnabled: true, defaultReminderDays: 1,
 };
 
-type AppearancePatch = Partial<Pick<AppSettings, 'language' | 'themeMode' | 'highContrast' | 'accentColor'>>;
+type AppearancePatch = Partial<Pick<AppSettings, 'language' | 'themeMode' | 'highContrast' | 'accentColor' | 'immersiveMode'>>;
 
 const AppearanceContext = createContext<{
   settings: AppSettings;

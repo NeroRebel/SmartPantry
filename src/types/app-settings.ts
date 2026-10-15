@@ -9,4 +9,5 @@ export interface AppSettings extends NotificationSettings {
   themeMode: ThemeMode;
   highContrast: boolean;
   accentColor: AccentColor;
+  immersiveMode: boolean;
 }

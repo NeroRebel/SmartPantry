@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme, useThemedStyles } from '@/theme/theme-context';
@@ -63,6 +63,11 @@ export default function AppearanceScreen() {
           })}
         </View>
       </View>
+      {Platform.OS === 'android' && <View style={styles.group}><View style={styles.row}>
+        <View style={styles.fullscreenCopy}><Text style={styles.rowText}>{t('appearance.immersive')}</Text>
+          <Text style={styles.hint}>{t('appearance.immersiveHint')}</Text></View>
+        <Switch accessibilityLabel={t('appearance.immersive')} accessibilityHint={t('appearance.immersiveHint')} value={settings.immersiveMode} disabled={busy} onValueChange={(value) => void change({ immersiveMode: value })} trackColor={{ false: colors.border, true: colors.accentFill }} thumbColor={settings.immersiveMode ? colors.onAccent : colors.text} />
+      </View></View>}
     </ScrollView>
   </SafeAreaView>;
 }
@@ -77,6 +82,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   group: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' },
   row: { minHeight: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   rowText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '500' },
+  fullscreenCopy: { flex: 1, gap: 6, paddingVertical: 14 },
+  hint: { color: colors.secondary, fontSize: 12, lineHeight: 18 },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   swatch: { width: '30%', minWidth: 84, alignItems: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   selectedSwatch: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
