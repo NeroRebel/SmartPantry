@@ -12,7 +12,7 @@ function modules(overrides = {}) {
     if (cache.has(filename)) return cache.get(filename).exports;
     const module = { exports: {} };
     cache.set(filename, module);
-    const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
     const requireLocal = (name) => {
       if (name in overrides) return overrides[name];
       if (!name.startsWith('.') && !name.startsWith('@/')) throw new Error(`Unexpected dependency: ${name}`);
@@ -76,6 +76,201 @@ test('email auth forwards credentials and metadata and reports confirmation hone
   assert.deepEqual(await auth.signUp('Name', 'a@example.com', 'password'), { session, confirmationRequired: false });
 });
 
+test('password reset explicitly uses native redirect, preserves web callback and validates email', async () => {
+  const calls = [];
+  const client = { auth: { resetPasswordForEmail: async (...args) => { calls.push(args); return { error: null }; } } };
+  await serviceFactory(client, redirect).sendPasswordReset(' a@example.com ');
+  assert.deepEqual(calls[0], ['a@example.com', { redirectTo: 'smartpantry://auth/callback' }]);
+  const webRedirect = 'https://app.example/auth/callback';
+  await serviceFactory(client, webRedirect, true).sendPasswordReset('a@example.com');
+  assert.deepEqual(calls[1], ['a@example.com', { redirectTo: webRedirect }]);
+  await assert.rejects(serviceFactory(client, redirect).sendPasswordReset('invalid'), { code: 'email_address_invalid' });
+  assert.equal(calls.length, 2);
+  client.auth.resetPasswordForEmail = async () => ({ error: { code: 'over_email_send_rate_limit' } });
+  await assert.rejects(serviceFactory(client, redirect).sendPasswordReset('a@example.com'), { code: 'over_email_send_rate_limit' });
+});
+
+test('recovery callbacks share PKCE exchange, distinguish signup, and never accept no-session recovery', async () => {
+  let exchanges = 0;
+  const auth = serviceFactory({ auth: { exchangeCodeForSession: async () => {
+    exchanges++; return { data: { session, redirectType: 'recovery' }, error: null };
+  } } }, redirect);
+  const url = `${redirect}?code=private&sb_flow_id=flow`;
+  const result = await Promise.all([auth.completeCallback(url), auth.completeCallback(url)]);
+  assert.equal(result[0], session); assert.equal(result[1], session); assert.equal(exchanges, 1);
+  assert.equal(auth.isRecoveryCallback(url), true);
+  assert.equal(auth.isRecoveryCallback(`${redirect}?type=signup`), false);
+  const invalid = serviceFactory({ auth: {} }, redirect);
+  await assert.rejects(invalid.completeCallback(`${redirect}?type=recovery`, true), { code: 'recovery_link_invalid' });
+  await assert.rejects(invalid.completeCallback(`${redirect}?type=recovery&error=access_denied`, true), { code: 'recovery_link_invalid' });
+  await assert.rejects(invalid.completeCallback(`${redirect}#error=access_denied&error_code=otp_expired`), { code: 'otp_expired' });
+  const noSession = serviceFactory({ auth: { exchangeCodeForSession: async () => ({ data: { session: null }, error: null }) } }, redirect);
+  await assert.rejects(noSession.completeCallback(`${redirect}?type=recovery&code=private`, true), { code: 'recovery_link_invalid' });
+  const missingVerifier = serviceFactory({ auth: { exchangeCodeForSession: async () => ({ data: {}, error: { name: 'AuthPKCECodeVerifierMissingError' } }) } }, redirect);
+  await assert.rejects(missingVerifier.completeCallback(`${redirect}?type=recovery&code=private`, true), { name: 'AuthPKCECodeVerifierMissingError' });
+});
+
+test('legacy recovery tokens establish a real session through the existing SDK handler', async () => {
+  const auth = serviceFactory({ auth: { setSession: async (input) => {
+    assert.deepEqual(input, { access_token: 'private-access', refresh_token: 'private-refresh' });
+    return { data: { session }, error: null };
+  } } }, redirect);
+  const url = `${redirect}#type=recovery&access_token=private-access&refresh_token=private-refresh`;
+  assert.equal(await auth.completeCallback(url, true), session);
+  assert.equal(auth.isRecoveryCallback(url), true);
+  const info = helpers.inspectAuthCallback(url, redirect, true);
+  assert.equal(info.emailConfirmationDetected, false);
+  assert.equal(info.recoveryDetected, true);
+  assert.equal(info.safeUrl.includes('private'), false);
+});
+
+test('password updates enforce signup rules, require a session and use supported reauthentication', async () => {
+  const calls = []; let activeSession = session;
+  const client = { auth: {
+    getSession: async () => ({ data: { session: activeSession }, error: null }),
+    updateUser: async (input) => { calls.push(input); return { data: { user: session.user }, error: null }; },
+    reauthenticate: async () => { calls.push('reauthenticate'); return { error: null }; },
+  } };
+  const auth = serviceFactory(client, redirect);
+  assert.equal(helpers.validateNewPassword('12345678', '12345678'), null);
+  await assert.rejects(auth.updatePassword('short', 'short'), { code: 'auth.passwordLength' });
+  await assert.rejects(auth.updatePassword('12345678', 'different'), { code: 'auth.passwordMismatch' });
+  await assert.rejects(auth.updatePassword('', ''), { code: 'auth.required' });
+  assert.equal(calls.length, 0);
+  await auth.updatePassword(' password ', ' password ');
+  await auth.reauthenticate();
+  await auth.updatePassword(' password ', ' password ', ' 123456 ');
+  assert.deepEqual(calls, [{ password: ' password ' }, 'reauthenticate', { password: ' password ', nonce: '123456' }]);
+  activeSession = null;
+  await assert.rejects(auth.updatePassword('12345678', '12345678'), { code: 'session_not_found' });
+  client.auth.reauthenticate = async () => ({ error: { code: 'request_timeout' } });
+  await assert.rejects(auth.reauthenticate(), { code: 'request_timeout' });
+});
+
+test('password errors map safely and email identity detection handles linked accounts', () => {
+  for (const [error, key] of [
+    [{ code: 'reauthentication_needed' }, 'password.reauthRequired'],
+    [{ code: 'reauth_nonce_missing' }, 'password.reauthRequired'],
+    [{ code: 'reauthentication_not_valid' }, 'password.reauthInvalid'],
+    [{ code: 'same_password' }, 'password.samePassword'],
+    [{ code: 'weak_password' }, 'auth.passwordLength'],
+    [{ code: 'session_expired' }, 'password.sessionExpired'],
+    [{ code: 'otp_expired' }, 'password.invalidLink'],
+    [{ name: 'AuthPKCECodeVerifierMissingError' }, 'password.invalidLink'],
+    [{ name: 'AuthSessionMissingError' }, 'password.sessionExpired'],
+  ]) assert.equal(helpers.authErrorKey(error), key);
+  assert.equal(helpers.hasEmailIdentity(null), false);
+  assert.equal(helpers.hasEmailIdentity({ identities: [{ provider: 'google' }], app_metadata: { providers: ['google'] } }), false);
+  assert.equal(helpers.hasEmailIdentity({ identities: [{ provider: 'google' }, { provider: 'email' }] }), true);
+  assert.equal(helpers.hasEmailIdentity({ app_metadata: { provider: 'email' } }), true);
+  assert.equal(helpers.hasEmailIdentity({ app_metadata: { providers: ['google', 'email'] } }), true);
+  assert.equal(helpers.hasEmailIdentity({ email: 'a@example.com', app_metadata: { provider: 'google' } }), false);
+});
+
+test('recovery persistence stores only an account routing marker and can be cleared', async () => {
+  const stored = new Map();
+  const recovery = modules({ '@react-native-async-storage/async-storage': {
+    getItem: async (key) => stored.get(key) ?? null,
+    setItem: async (key, value) => stored.set(key, value), removeItem: async (key) => stored.delete(key),
+  } })('services/password-recovery.ts');
+  assert.equal(await recovery.readRecoveryUser(), null);
+  await recovery.saveRecoveryUser('user-id');
+  assert.equal(await recovery.readRecoveryUser(), 'user-id');
+  assert.deepEqual([...stored.values()], ['user-id']);
+  await recovery.saveRecoveryUser(null);
+  assert.equal(await recovery.readRecoveryUser(), null);
+});
+
+test('password strings are available in all five languages', () => {
+  const translations = modules()('i18n/password.ts').passwordTranslations;
+  for (const language of ['sk', 'ru', 'uk', 'hu']) assert.deepEqual(Object.keys(translations[language]).sort(), Object.keys(translations.en).sort());
+});
+
+test('password diagnostics whitelist SDK classifications, never request or error-message secrets', async () => {
+  const previousDev = global.__DEV__; const previousWarn = console.warn;
+  const logs = []; global.__DEV__ = true; console.warn = (...args) => logs.push(args);
+  try {
+    const auth = serviceFactory({ auth: { resetPasswordForEmail: async () => ({ error: {
+      code: 'over_email_send_rate_limit', name: 'AuthApiError', status: 429, message: 'SECRET', access_token: 'SECRET',
+    } }) } }, redirect);
+    await assert.rejects(auth.sendPasswordReset('private@example.com'));
+    assert.deepEqual(logs, [['[SmartPantry] Password request failed', { operation: 'send-reset-link', code: 'over_email_send_rate_limit', name: 'AuthApiError', status: 429 }]]);
+    assert.equal(JSON.stringify(logs).includes('SECRET'), false);
+    assert.equal(JSON.stringify(logs).includes('private@example.com'), false);
+    logs.length = 0; global.__DEV__ = false;
+    await assert.rejects(auth.sendPasswordReset('private@example.com'));
+    assert.equal(logs.length, 0);
+  } finally { console.warn = previousWarn; if (previousDev === undefined) delete global.__DEV__; else global.__DEV__ = previousDev; }
+});
+
+function authStateHarness(storedSession = null, storedRecovery = null) {
+  const slots = []; let index = 0; let dirty = true; let listener; let value; let effects = [];
+  const changed = (a, b) => !a || !b || a.length !== b.length || a.some((item, i) => item !== b[i]);
+  const writes = [];
+  const react = {
+    createContext: () => ({ Provider: 'provider' }), useContext: () => value,
+    useState: (initial) => { const slot = index++; if (!(slot in slots)) slots[slot] = initial; return [slots[slot], (next) => { slots[slot] = typeof next === 'function' ? next(slots[slot]) : next; dirty = true; }]; },
+    useEffect: (effect, deps) => { const slot = index++; if (changed(slots[slot], deps)) { slots[slot] = deps; effects.push(effect); } },
+    useMemo: (compute, deps) => { const slot = index++; if (!slots[slot] || changed(slots[slot].deps, deps)) slots[slot] = { deps, value: compute() }; return slots[slot].value; },
+    useCallback: (callback, deps) => react.useMemo(() => callback, deps),
+  };
+  const service = {
+    restoreSession: async () => storedSession,
+    completeCallback: async () => { listener('SIGNED_IN', session); return session; },
+    isRecoveryCallback: () => true,
+    updatePassword: async () => session.user,
+    signOut: async () => listener('SIGNED_OUT', null),
+  };
+  const { AuthProvider } = modules({
+    react, 'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
+    'react-native': { Platform: { OS: 'web' }, AppState: { addEventListener: () => ({ remove() {} }) } },
+    '@/lib/supabase': { supabase: { auth: { onAuthStateChange: (callback) => { listener = callback; return { data: { subscription: { unsubscribe() {} } } }; } } } },
+    '@/services/auth': { authService: service }, '@/services/avatars': { avatarService: {} },
+    '@/hooks/use-user-avatar': { useUserAvatar: () => null },
+    '@/services/pending-verification': { readPendingVerification: async () => null, savePendingVerification: async () => {} },
+    '@/services/password-recovery': { readRecoveryUser: async () => storedRecovery, saveRecoveryUser: async (id) => writes.push(id) },
+  })('auth/auth-context.tsx');
+  return {
+    get value() { return value; }, writes,
+    event: (event, next) => listener(event, next),
+    async flush() {
+      for (let i = 0; i < 12; i++) {
+        if (dirty) {
+          dirty = false; index = 0; value = AuthProvider({ children: null }).props.value;
+          const pending = effects; effects = []; for (const effect of pending) effect();
+        }
+        await Promise.resolve();
+      }
+    },
+  };
+}
+
+test('AuthProvider routes legacy recovery without PASSWORD_RECOVERY event and clears it after update', async () => {
+  const harness = authStateHarness(); await harness.flush();
+  assert.equal(harness.value.session, null);
+  const result = await harness.value.completeCallback(`${redirect}#type=recovery`); await harness.flush();
+  assert.equal(result, 'recovery'); assert.equal(harness.value.recovering, true); assert.equal(harness.value.processingCallback, false);
+  assert.equal(harness.value.session, session);
+  await harness.value.updatePassword('12345678', '12345678'); await harness.flush();
+  assert.equal(harness.value.recovering, false); assert.equal(harness.value.passwordRecoveryComplete, true);
+  assert.equal(harness.writes.at(-1), null);
+  harness.value.finishPasswordRecovery(); await harness.flush();
+  assert.equal(harness.value.passwordRecoveryComplete, false); assert.deepEqual(harness.value.session, session);
+});
+
+test('AuthProvider handles PASSWORD_RECOVERY and restores only a marker belonging to the real session', async () => {
+  const restored = authStateHarness(session, session.user.id); await restored.flush();
+  assert.equal(restored.value.recovering, true);
+  const another = authStateHarness(session, 'another-user'); await another.flush();
+  assert.equal(another.value.recovering, false);
+  another.event('PASSWORD_RECOVERY', session); await another.flush();
+  assert.equal(another.value.recovering, true);
+  assert.equal(another.writes.at(-1), session.user.id);
+  await another.value.signOut(); await another.flush();
+  assert.equal(another.value.session, null); assert.equal(another.value.recovering, false);
+  assert.equal(another.writes.at(-1), null);
+});
+
 test('OAuth browser and callback delivery exchange a code once; cancellation creates no session', async () => {
   let exchanges = 0;
   const client = { auth: {
@@ -114,6 +309,165 @@ test('profile uses Google metadata with safe missing-avatar defaults', () => {
 
 test('all auth strings are translated into all five languages', () => {
   const translations = modules()('i18n/auth.ts').authTranslations;
+  const keys = Object.keys(translations.en).sort();
+  for (const language of ['sk', 'ru', 'uk', 'hu']) assert.deepEqual(Object.keys(translations[language]).sort(), keys);
+});
+
+test('confirmation validates email and handles the resend cooldown safely', () => {
+  const confirmation = modules()('utils/email-verification.ts');
+  assert.equal(confirmation.isValidVerificationEmail(' a@example.com '), true);
+  for (const email of ['', 'invalid', 'a@', 'a @example.com']) assert.equal(confirmation.isValidVerificationEmail(email), false);
+  assert.equal(confirmation.resendSecondsRemaining(60000, 0), 60);
+  assert.equal(confirmation.resendSecondsRemaining(60000, 59500), 1);
+  assert.equal(confirmation.resendSecondsRemaining(60000, 65000), 0);
+});
+
+test('confirmation resend uses signup resend and the existing redirect, never another signup', async () => {
+  let resends = 0;
+  const auth = serviceFactory({ auth: {
+    resend: async (input) => { resends++; assert.deepEqual(input, { email: 'a@example.com', type: 'signup', options: { emailRedirectTo: redirect } }); return { error: null }; },
+  } }, redirect);
+  await auth.resendConfirmationEmail(' a@example.com ');
+  await assert.rejects(auth.resendConfirmationEmail('bad'), { code: 'email_address_invalid' });
+  assert.equal(resends, 1);
+  await assert.rejects(serviceFactory({ auth: { resend: async () => ({ error: { code: 'over_email_send_rate_limit' } }) } }, redirect).resendConfirmationEmail('a@example.com'), { code: 'over_email_send_rate_limit' });
+  const webRedirect = 'https://app.example/auth/callback';
+  await serviceFactory({ auth: { resend: async (input) => { assert.equal(input.options.emailRedirectTo, webRedirect); return { error: null }; } } }, webRedirect, true).resendConfirmationEmail('a@example.com');
+});
+
+test('confirmation callback accepts returned sessions and rejects missing sessions without fabricating auth', async () => {
+  const auth = serviceFactory({ auth: { setSession: async (input) => {
+    assert.deepEqual(input, { access_token: 'access', refresh_token: 'refresh' });
+    return { data: { session }, error: null };
+  } } }, redirect);
+  assert.equal(await auth.completeCallback(`${redirect}#access_token=access&refresh_token=refresh`), session);
+  await assert.rejects(serviceFactory({ auth: { exchangeCodeForSession: async () => ({ data: { session: null }, error: null }) } }, redirect).completeCallback(`${redirect}?code=confirmed`), { code: 'oauth_callback_error' });
+  await assert.rejects(serviceFactory(null, redirect).completeCallback(redirect), { code: 'oauth_callback_invalid' });
+});
+
+test('native signup and resend pin the mobile email redirect independently of Google redirect', async () => {
+  let signupRedirect; let resendRedirect; let googleRedirect;
+  const googleUrl = 'https://different.example/auth/callback';
+  const auth = serviceFactory({ auth: {
+    signUp: async (input) => { signupRedirect = input.options.emailRedirectTo; return { data: { session: null }, error: null }; },
+    resend: async (input) => { resendRedirect = input.options.emailRedirectTo; return { error: null }; },
+    signInWithOAuth: async (input) => { googleRedirect = input.options.redirectTo; return { data: { url: 'https://example.com/oauth' }, error: null }; },
+  } }, googleUrl, false, async () => ({ type: 'cancel' }));
+  await auth.signUp('Name', 'a@example.com', 'password');
+  await auth.resendConfirmationEmail('a@example.com');
+  await auth.signInWithGoogle();
+  assert.equal(signupRedirect, redirect); assert.equal(resendRedirect, redirect); assert.equal(googleRedirect, googleUrl);
+});
+
+test('email confirmation without a mobile session returns a sign-in outcome, not fabricated auth', async () => {
+  const auth = serviceFactory({ auth: { exchangeCodeForSession: async () => ({ data: { session: null }, error: null }) } }, redirect);
+  assert.equal(await auth.completeCallback(`${redirect}?type=signup`), null);
+  assert.equal(await auth.completeCallback(`${redirect}?code=confirmed`, true), null);
+  await assert.rejects(auth.completeCallback(`${redirect}?error=access_denied&type=signup`), { code: 'oauth_callback_invalid' });
+  const missingVerifier = serviceFactory({ auth: { exchangeCodeForSession: async () => ({ data: {}, error: { name: 'AuthPKCECodeVerifierMissingError' } }) } }, redirect);
+  assert.equal(await missingVerifier.completeCallback(`${redirect}?code=confirmed`, true), null);
+  const offline = serviceFactory({ auth: { exchangeCodeForSession: async () => { throw Object.assign(new Error('Offline'), { name: 'TypeError' }); } } }, redirect);
+  await assert.rejects(offline.completeCallback(`${redirect}?code=confirmed`, true));
+  assert.equal(helpers.inspectAuthCallback(`${redirect}#type=signup`, redirect).emailConfirmationDetected, true);
+  assert.equal(helpers.inspectAuthCallback(`${redirect}?code=x`, redirect, true).detectionSource, 'pending-registration');
+  assert.equal(helpers.inspectAuthCallback('https://untrusted.example?type=signup', redirect, true).emailConfirmationDetected, false);
+});
+
+test('callback diagnostics redact all query/hash values and never log sessions or errors', async (context) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+  const logs = [];
+  context.mock.method(console, 'info', (...args) => logs.push(args));
+  Object.defineProperty(globalThis, '__DEV__', { value: true, configurable: true });
+  try {
+    const auth = serviceFactory({ auth: { setSession: async () => ({ data: { session }, error: null }) } }, redirect);
+    await auth.completeCallback(`${redirect}?email=PRIVATE_EMAIL#type=signup&access_token=SECRET_ACCESS&refresh_token=SECRET_REFRESH`);
+    assert.equal(logs[0][1].incoming_callback_url, `${redirect}?[redacted]#[redacted]`);
+    assert.equal(logs[1][1].email_confirmation_detected, true);
+    assert.equal(logs[1][1].session_created, true);
+    const failed = serviceFactory({ auth: { exchangeCodeForSession: async () => { throw new Error('SECRET_ERROR'); } } }, redirect);
+    await assert.rejects(failed.completeCallback(`${redirect}?code=SECRET_CODE`));
+    assert.equal(logs.at(-1)[1].session_created, false);
+    for (const secret of ['SECRET_ACCESS', 'SECRET_REFRESH', 'SECRET_CODE', 'SECRET_ERROR', 'PRIVATE_EMAIL', 'user-id']) assert.equal(JSON.stringify(logs).includes(secret), false);
+    assert.equal(helpers.inspectAuthCallback('invalid SECRET_TOKEN', redirect).safeUrl, '[invalid callback]');
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor); else delete globalThis.__DEV__;
+  }
+});
+
+test('SDK PKCE flow ids are forwarded when present and never printed in callback diagnostics', async (context) => {
+  const flowId = '123e4567-e89b-42d3-a456-426614174000';
+  assert.deepEqual(helpers.parseAuthCallback(`${redirect}?code=code&sb_flow_id=${flowId}`, redirect), { type: 'code', code: 'code', flowId });
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+  const logs = [];
+  context.mock.method(console, 'info', (...args) => logs.push(args));
+  Object.defineProperty(globalThis, '__DEV__', { value: true, configurable: true });
+  try {
+    const auth = serviceFactory({ auth: { exchangeCodeForSession: async (code, options) => {
+      assert.equal(code, 'secret-code'); assert.deepEqual(options, { flowId });
+      return { data: { session }, error: null };
+    } } }, redirect);
+    assert.equal(await auth.completeCallback(`${redirect}?code=secret-code&sb_flow_id=${flowId}`, true), session);
+    assert.equal(JSON.stringify(logs).includes(flowId), false);
+    assert.equal(JSON.stringify(logs).includes('secret-code'), false);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor); else delete globalThis.__DEV__;
+  }
+});
+
+test('pending registration cannot convert an active Google OAuth failure into email confirmation success', async () => {
+  let auth;
+  const error = { name: 'AuthPKCECodeVerifierMissingError' };
+  auth = serviceFactory({ auth: {
+    signInWithOAuth: async () => ({ data: { url: 'https://example.com/google' }, error: null }),
+    exchangeCodeForSession: async () => ({ data: {}, error }),
+  } }, redirect, false, async () => {
+    await assert.rejects(auth.completeCallback(`${redirect}?code=google-code`, true), (cause) => cause === error);
+    return { type: 'cancel' };
+  });
+  assert.equal((await auth.signInWithGoogle()).status, 'cancelled');
+});
+
+test('email redirect diagnostics print only configuration booleans', async (context) => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+  const logs = [];
+  context.mock.method(console, 'info', (...args) => logs.push(args));
+  Object.defineProperty(globalThis, '__DEV__', { value: true, configurable: true });
+  try {
+    const auth = serviceFactory({ auth: {
+      signUp: async () => ({ data: { session: null }, error: null }), resend: async () => ({ error: null }),
+    } }, redirect);
+    await auth.signUp('Private Name', 'private@example.com', 'PRIVATE_PASSWORD');
+    await auth.resendConfirmationEmail('private@example.com');
+    assert.deepEqual(logs, [
+      ['[SmartPantry] Email confirmation redirect configured:', true],
+      ['[SmartPantry] Email confirmation redirect configured:', true],
+    ]);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor); else delete globalThis.__DEV__;
+  }
+});
+
+test('pending verification persists only email and cooldown; malformed storage and storage failures are safe', async () => {
+  let stored = null;
+  const storage = { getItem: async () => stored, setItem: async (_key, value) => { stored = value; }, removeItem: async () => { stored = null; } };
+  const pending = modules({ '@react-native-async-storage/async-storage': { __esModule: true, default: storage } })('services/pending-verification.ts');
+  assert.equal(await pending.readPendingVerification(), null);
+  const deadline = Date.now() + 30000;
+  await pending.savePendingVerification({ email: 'a@example.com', resendAvailableAt: deadline, password: 'not-persisted', token: 'not-persisted' });
+  assert.deepEqual(JSON.parse(stored), { email: 'a@example.com', resendAvailableAt: deadline });
+  assert.deepEqual(await pending.readPendingVerification(), { email: 'a@example.com', resendAvailableAt: deadline });
+  stored = 'broken'; assert.equal(await pending.readPendingVerification(), null);
+  stored = JSON.stringify({ email: 'invalid' }); assert.equal(await pending.readPendingVerification(), null);
+  stored = JSON.stringify({ email: 'a@example.com' }); assert.equal((await pending.readPendingVerification()).resendAvailableAt, 0);
+  await pending.savePendingVerification(null); assert.equal(stored, null);
+  storage.getItem = async () => { throw new Error('Unavailable'); };
+  storage.setItem = storage.getItem;
+  assert.equal(await pending.readPendingVerification(), null);
+  await pending.savePendingVerification({ email: 'a@example.com', resendAvailableAt: deadline });
+});
+
+test('confirmation-link strings exist in all five languages', () => {
+  const translations = modules()('i18n/email-confirmation.ts').confirmationTranslations;
   const keys = Object.keys(translations.en).sort();
   for (const language of ['sk', 'ru', 'uk', 'hu']) assert.deepEqual(Object.keys(translations[language]).sort(), keys);
 });

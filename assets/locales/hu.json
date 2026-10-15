@@ -1,1 +1,1 @@
-{ "ios": { "NSCameraUsageDescription": "Engedélyezze a SmartPantry kamerahozzáférését az élelmiszerek vonalkódjának beolvasásához." } }
+{ "ios": { "NSCameraUsageDescription": "Engedélyezze a SmartPantry kamerahozzáférését az élelmiszerek vonalkódjának beolvasásához.", "NSPhotoLibraryUsageDescription": "Engedélyezze a SmartPantry hozzáférését a profiljához kiválasztott fotókhoz." } }

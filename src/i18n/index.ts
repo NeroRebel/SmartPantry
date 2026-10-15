@@ -9,11 +9,17 @@ import { hu } from './locales/hu';
 import { scannerTranslations } from './scanner';
 import { authTranslations } from './auth';
 import { profileTranslations } from './profile';
+import { confirmationTranslations } from './email-confirmation';
+import { avatarTranslations } from './avatar';
+import { passwordTranslations } from './password';
 
-export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en, ...profileTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk, ...profileTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru, ...profileTranslations.ru } },
-  uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk, ...profileTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu, ...profileTranslations.hu } } };
+export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en, ...profileTranslations.en, ...confirmationTranslations.en, ...avatarTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk, ...profileTranslations.sk, ...confirmationTranslations.sk, ...avatarTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru, ...profileTranslations.ru, ...confirmationTranslations.ru, ...avatarTranslations.ru } },
+  uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk, ...profileTranslations.uk, ...confirmationTranslations.uk, ...avatarTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu, ...profileTranslations.hu, ...confirmationTranslations.hu, ...avatarTranslations.hu } } };
 
 export const i18n = createInstance();
+for (const language of ['en', 'sk', 'ru', 'uk', 'hu'] as const) {
+  Object.assign(resources[language].translation, passwordTranslations[language]);
+}
 void i18n.use(initReactI18next).init({
   resources, lng: 'en', fallbackLng: 'en', supportedLngs: ['en', 'sk', 'ru', 'uk', 'hu'],
   keySeparator: false, interpolation: { escapeValue: false }, initAsync: false,

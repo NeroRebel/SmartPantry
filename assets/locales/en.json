@@ -1,1 +1,1 @@
-{ "ios": { "NSCameraUsageDescription": "Allow SmartPantry to use your camera to scan food product barcodes." } }
+{ "ios": { "NSCameraUsageDescription": "Allow SmartPantry to use your camera to scan food product barcodes.", "NSPhotoLibraryUsageDescription": "Allow SmartPantry to access photos you choose for your profile." } }

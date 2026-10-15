@@ -34,9 +34,17 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
     try {
       if (signup) {
         const confirmationRequired = await auth.signUp(name, email, password);
-        if (confirmationRequired) { setNotice('auth.checkEmail'); setPassword(''); setConfirm(''); }
+        if (confirmationRequired) { setPassword(''); setConfirm(''); router.replace('/(auth)/check-email'); }
       } else await auth.signIn(email, password);
     } catch (cause) { setError(auth.authErrorKey(cause)); }
+    finally { locked.current = false; setBusy(null); }
+  }
+
+  async function openConfirmation() {
+    if (locked.current || !auth.configured) return;
+    locked.current = true; setBusy('email');
+    try { await auth.prepareEmailConfirmation(email); router.push('/(auth)/check-email'); }
+    catch (cause) { setError(auth.authErrorKey(cause)); }
     finally { locked.current = false; setBusy(null); }
   }
 
@@ -64,7 +72,9 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
           <Pressable accessibilityRole="button" accessibilityLabel={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')} disabled={!!busy} onPress={() => setShowPassword((current) => !current)} style={styles.eye}><Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.secondary} /></Pressable>
         </View></View>
         {signup && <View style={styles.field}><Text style={styles.label}>{t('auth.confirmPassword')}</Text><TextInput accessibilityLabel={t('auth.confirmPassword')} value={confirm} onChangeText={setConfirm} editable={!busy} secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" style={styles.input} selectionColor={colors.accent} /></View>}
+        {!signup && <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.push('/(auth)/forgot-password')}><Text style={styles.link}>{t('password.forgot')}</Text></Pressable>}
         {error && <Text accessibilityRole="alert" style={styles.error}>{t(error)}</Text>}
+        {!signup && error === 'auth.emailUnconfirmed' && <Pressable accessibilityRole="button" disabled={disabled} onPress={() => void openConfirmation()}><Text style={styles.link}>{t('confirmation.resend')}</Text></Pressable>}
         {notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{t(notice)}</Text>}
         <Pressable accessibilityRole="button" accessibilityState={{ disabled, busy: busy === 'email' }} disabled={disabled} onPress={() => void submit()} style={[styles.primary, disabled && styles.disabled]}>
           {busy === 'email' ? <ActivityIndicator color={colors.onAccent} /> : <Text style={styles.primaryText}>{t(signup ? 'auth.createAccount' : 'auth.signIn')}</Text>}
@@ -76,6 +86,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
         <View style={styles.switchMode}><Text style={styles.secondary}>{t(signup ? 'auth.haveAccount' : 'auth.noAccount')}</Text>
           <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.replace(signup ? '/(auth)/sign-in' : '/(auth)/sign-up')}><Text style={styles.link}>{t(signup ? 'auth.signIn' : 'auth.signUp')}</Text></Pressable>
         </View>
+        {!signup && <Pressable accessibilityRole="button" disabled={!!busy} onPress={() => router.push('/(auth)/check-email')}><Text style={[styles.link, styles.secondary]}>{t('confirmation.resume')}</Text></Pressable>}
       </ScrollView>
     </KeyboardAvoidingView>
   </SafeAreaView>;

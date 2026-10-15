@@ -43,6 +43,10 @@
       ],
       "expo-sqlite",
       "expo-localization",
+      ["expo-image-picker", {
+        "photosPermission": "Allow SmartPantry to access photos you choose for your profile.",
+        "microphonePermission": false
+      }],
       ["expo-camera", {
         "cameraPermission": "Allow SmartPantry to use your camera to scan food product barcodes.",
         "microphonePermission": false,

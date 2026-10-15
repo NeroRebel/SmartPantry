@@ -3,33 +3,89 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { parseAuthCallback, validateDisplayName } from '@/utils/auth';
+import { inspectAuthCallback, validateDisplayName, validateNewPassword } from '@/utils/auth';
+import { isValidVerificationEmail } from '@/utils/email-verification';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export const authRedirectUri = makeRedirectUri({ scheme: 'smartpantry', path: 'auth/callback', native: 'smartpantry://auth/callback' });
+export const emailConfirmationRedirectUri = 'smartpantry://auth/callback';
+export const authRedirectUri = makeRedirectUri({ scheme: 'smartpantry', path: 'auth/callback', native: emailConfirmationRedirectUri });
 
 function failure(code: string): never { throw Object.assign(new Error('Authentication failed'), { code }); }
 
+function logEmailRedirect(redirect: string) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Email confirmation redirect configured:', redirect === emailConfirmationRedirectUri);
+}
+
+function logPasswordError(operation: string, error: unknown) {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+  const value = error && typeof error === 'object' ? error as { code?: unknown; name?: unknown; status?: unknown } : {};
+  // SDK classifications are useful for diagnosis; never print the request, message or session.
+  const label = (input: unknown) => typeof input === 'string' && /^[a-zA-Z_]{1,80}$/.test(input) ? input : undefined;
+  console.warn('[SmartPantry] Password request failed', {
+    operation, code: label(value.code), name: label(value.name), status: typeof value.status === 'number' ? value.status : undefined,
+  });
+}
+
 export function createAuthService(client: SupabaseClient | null, redirectTo: string, web = Platform.OS === 'web', browser = WebBrowser.openAuthSessionAsync) {
   const requireClient = () => client ?? failure('configuration_missing');
+  let googleRequests = 0;
   // The browser result and the callback route can arrive together. Exchange each code once.
-  const callbacks = new Map<string, Promise<Session>>();
-  function completeCallback(url: string): Promise<Session> {
+  const callbacks = new Map<string, Promise<Session | null>>();
+  const recoveryCallbacks = new Set<string>();
+  function completeCallback(url: string, pendingEmailConfirmation = false): Promise<Session | null> {
     const previous = callbacks.get(url);
     if (previous) return previous;
     const promise = (async () => {
-      const callback = parseAuthCallback(url, redirectTo);
-      if (!callback || callback.type === 'error') failure('oauth_callback_invalid');
-      const auth = requireClient().auth;
-      const { data, error } = callback.type === 'code'
-        ? await auth.exchangeCodeForSession(callback.code)
-        : await auth.setSession({ access_token: callback.accessToken, refresh_token: callback.refreshToken });
-      if (error) throw error;
-      if (!data.session) failure('oauth_callback_error');
-      return data.session;
+      const info = inspectAuthCallback(url, redirectTo, pendingEmailConfirmation && googleRequests === 0);
+      let sessionCreated = false;
+      let source = info.emailConfirmationDetected ? 'email' : googleRequests > 0 ? 'google' : 'unknown';
+      const diagnostics = (phase: 'received' | 'completed') => {
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Auth callback', {
+          phase, incoming_callback_url: info.safeUrl,
+          email_confirmation_detected: info.emailConfirmationDetected,
+          email_confirmation_detection_source: info.detectionSource,
+          provider_source: source,
+          session_created: sessionCreated,
+          password_recovery_detected: info.recoveryDetected || recoveryCallbacks.has(url),
+        });
+      };
+      diagnostics('received');
+      try {
+        const callback = info.callback;
+        if (info.linkExpired) failure('otp_expired');
+        if (!callback || callback.type === 'error') failure(info.recoveryDetected ? 'recovery_link_invalid' : 'oauth_callback_invalid');
+        if (callback.type === 'empty') {
+          if (info.recoveryDetected) failure('recovery_link_invalid');
+          if (info.emailConfirmationDetected) return null;
+          failure('oauth_callback_invalid');
+        }
+        const auth = requireClient().auth;
+        const { data, error } = callback.type === 'code'
+          ? await auth.exchangeCodeForSession(callback.code, callback.flowId ? { flowId: callback.flowId } : undefined)
+          : await auth.setSession({ access_token: callback.accessToken, refresh_token: callback.refreshToken });
+        if (error) {
+          // A confirmed email can return a code that this installation cannot exchange.
+          const code = error.code;
+          if (!info.recoveryDetected && info.emailConfirmationDetected && callback.type === 'code' &&
+            (error.name === 'AuthPKCECodeVerifierMissingError' || ['flow_state_not_found', 'flow_state_expired', 'bad_code_verifier'].includes(code ?? ''))) return null;
+          throw error;
+        }
+        if (!data.session) {
+          if (info.recoveryDetected) failure('recovery_link_invalid');
+          if (info.emailConfirmationDetected) return null;
+          failure('oauth_callback_error');
+        }
+        if (info.recoveryDetected || ('redirectType' in data && data.redirectType === 'recovery')) recoveryCallbacks.add(url);
+        sessionCreated = true;
+        source = data.session.user.app_metadata?.provider === 'google' ? 'google' : data.session.user.app_metadata?.provider === 'email' ? 'email' : source;
+        return data.session;
+      } finally { diagnostics('completed'); }
     })();
-    if (callbacks.size >= 10) callbacks.delete(callbacks.keys().next().value!);
+    if (callbacks.size >= 10) {
+      const oldest = callbacks.keys().next().value!;
+      callbacks.delete(oldest); recoveryCallbacks.delete(oldest);
+    }
     callbacks.set(url, promise);
     return promise;
   }
@@ -45,12 +101,53 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       return data.session;
     },
     async signUp(name: string, email: string, password: string) {
-      const { data, error } = await requireClient().auth.signUp({ email: email.trim(), password,
-        options: { data: { full_name: name.trim() }, emailRedirectTo: redirectTo } });
+      const options = {
+        emailRedirectTo: 'smartpantry://auth/callback',
+        data: { full_name: name.trim() },
+      };
+      // Browser registration keeps its explicit browser callback, never the Site URL fallback.
+      if (web) options.emailRedirectTo = redirectTo;
+      logEmailRedirect(options.emailRedirectTo);
+      const { data, error } = await requireClient().auth.signUp({ email: email.trim(), password, options });
       if (error) throw error;
       return { session: data.session, confirmationRequired: !data.session };
     },
     completeCallback,
+    isRecoveryCallback(url: string) {
+      return recoveryCallbacks.has(url) || inspectAuthCallback(url, redirectTo).recoveryDetected;
+    },
+    async sendPasswordReset(email: string) {
+      if (!isValidVerificationEmail(email)) failure('email_address_invalid');
+      const { error } = await requireClient().auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: web ? redirectTo : 'smartpantry://auth/callback',
+      });
+      if (error) { logPasswordError('send-reset-link', error); throw error; }
+    },
+    async updatePassword(password: string, confirmation: string, nonce?: string) {
+      const validation = validateNewPassword(password, confirmation);
+      if (validation) failure(validation);
+      const auth = requireClient().auth;
+      const { data: current, error: sessionError } = await auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!current.session) failure('session_not_found');
+      const { data, error } = await auth.updateUser({ password, ...(nonce ? { nonce: nonce.trim() } : {}) });
+      if (error) { logPasswordError('update-password', error); throw error; }
+      if (!data.user) failure('session_not_found');
+      callbacks.clear(); recoveryCallbacks.clear();
+      return data.user;
+    },
+    async reauthenticate() {
+      const { error } = await requireClient().auth.reauthenticate();
+      if (error) { logPasswordError('reauthenticate', error); throw error; }
+    },
+    async resendConfirmationEmail(email: string) {
+      if (!isValidVerificationEmail(email)) failure('email_address_invalid');
+      const options = { emailRedirectTo: 'smartpantry://auth/callback' };
+      if (web) options.emailRedirectTo = redirectTo;
+      logEmailRedirect(options.emailRedirectTo);
+      const { error } = await requireClient().auth.resend({ type: 'signup', email: email.trim(), options });
+      if (error) throw error;
+    },
     async updateDisplayName(name: string) {
       const validation = validateDisplayName(name);
       if (validation) failure(validation);
@@ -60,22 +157,27 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       return data.user;
     },
     async signInWithGoogle() {
-      const { data, error } = await requireClient().auth.signInWithOAuth({ provider: 'google', options: {
-        redirectTo, skipBrowserRedirect: !web, queryParams: { prompt: 'select_account' },
-      } });
-      if (error) throw error;
-      if (!data.url) failure('oauth_callback_error');
-      if (web) return { status: 'redirected' as const, session: null };
-      const result = await browser(data.url, redirectTo);
-      if (result.type === 'cancel' || result.type === 'dismiss') return { status: 'cancelled' as const, session: null };
-      if (result.type !== 'success') failure('oauth_callback_error');
-      const session = await completeCallback(result.url);
-      return { status: 'success' as const, session };
+      googleRequests++;
+      try {
+        const { data, error } = await requireClient().auth.signInWithOAuth({ provider: 'google', options: {
+          redirectTo, skipBrowserRedirect: !web, queryParams: { prompt: 'select_account' },
+        } });
+        if (error) throw error;
+        if (!data.url) failure('oauth_callback_error');
+        if (web) return { status: 'redirected' as const, session: null };
+        const result = await browser(data.url, redirectTo);
+        if (result.type === 'cancel' || result.type === 'dismiss') return { status: 'cancelled' as const, session: null };
+        if (result.type !== 'success') failure('oauth_callback_error');
+        const session = await completeCallback(result.url);
+        if (!session) failure('oauth_callback_error');
+        return { status: 'success' as const, session };
+      } finally { googleRequests--; }
     },
     async signOut() {
       const { error } = await requireClient().auth.signOut();
       if (error) throw error;
       callbacks.clear();
+      recoveryCallbacks.clear();
     },
   };
 }

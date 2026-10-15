@@ -9,7 +9,7 @@ import { AppearanceProvider, useAppTheme } from '@/theme/theme-context';
 
 function RootNavigator() {
   const { colors, mode } = useAppTheme();
-  const { session, loading } = useAuth();
+  const { session, loading, recovering, passwordRecoveryComplete, processingCallback } = useAuth();
   const base = mode === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = { ...base, colors: { ...base.colors, background: colors.background,
     card: colors.surface, primary: colors.accent, text: colors.text, border: colors.border, notification: colors.expired } };
@@ -21,10 +21,10 @@ function RootNavigator() {
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       {loading ? <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" color={colors.accent} /></View> :
         <Stack initialRouteName={session ? '(tabs)' : '(auth)'} screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={!session}><Stack.Screen name="(auth)" /></Stack.Protected>
-          <Stack.Protected guard={!!session}>
+          <Stack.Protected guard={!session || recovering || passwordRecoveryComplete}><Stack.Screen name="(auth)" /></Stack.Protected>
+          <Stack.Protected guard={!!session && !recovering && !passwordRecoveryComplete && !processingCallback}>
             {['(tabs)', 'product/add', 'product/scanned', 'product/search', 'product/[id]', 'product/[id]/edit',
-              'recipe/[id]', 'shopping-list', 'statistics', 'settings/data', 'settings/language', 'settings/appearance', 'about', 'profile'].map((name) => <Stack.Screen key={name} name={name} />)}
+              'recipe/[id]', 'shopping-list', 'statistics', 'settings/data', 'settings/language', 'settings/appearance', 'settings/change-password', 'about', 'profile'].map((name) => <Stack.Screen key={name} name={name} />)}
           </Stack.Protected>
           <Stack.Screen name="auth/callback" />
         </Stack>}

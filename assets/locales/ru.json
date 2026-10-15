@@ -1,1 +1,1 @@
-{ "ios": { "NSCameraUsageDescription": "Разрешите SmartPantry использовать камеру для сканирования штрихкодов продуктов." } }
+{ "ios": { "NSCameraUsageDescription": "Разрешите SmartPantry использовать камеру для сканирования штрихкодов продуктов.", "NSPhotoLibraryUsageDescription": "Разрешите SmartPantry доступ к фото, которые вы выбираете для профиля." } }
