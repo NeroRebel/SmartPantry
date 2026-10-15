@@ -17,9 +17,7 @@ and keep your pantry synchronized across devices.
 
 </div>
 
-<p align="center">
-  ![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
-</p>
+![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
 
 ## Development
 
