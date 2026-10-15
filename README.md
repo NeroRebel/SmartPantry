@@ -71,7 +71,21 @@ The latest signed Android APK is available through **GitHub Releases**.
 
 ## Screenshots
 
-> Add release screenshots to `docs/screenshots/` and enable the block below.
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.png" width="210" alt="Home dashboard"/><br/><strong>Home</strong></td>
+    <td align="center"><img src="docs/screenshots/inventory.png" width="210" alt="Inventory with product expiration statuses"/><br/><strong>Inventory</strong></td>
+    <td align="center"><img src="docs/screenshots/recipes.png" width="210" alt="Recipes matched to pantry ingredients"/><br/><strong>Recipes</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/statistics.png" width="210" alt="Food consumption and waste statistics"/><br/><strong>Statistics</strong></td>
+    <td align="center"><img src="docs/screenshots/shopping-list.png" width="210" alt="Shopping list with to-buy and purchased items"/><br/><strong>Shopping List</strong></td>
+    <td align="center"><img src="docs/screenshots/scan.png" width="210" alt="Scanner camera permission and manual entry options"/><br/><strong>Scan</strong></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="3"><img src="docs/screenshots/more.png" width="210" alt="More navigation and preferences"/><br/><strong>More</strong></td>
+  </tr>
+</table>
 
 <!--
 <p align="center">
