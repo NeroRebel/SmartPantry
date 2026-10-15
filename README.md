@@ -4,11 +4,22 @@
 
 # SmartPantry
 
-![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
+### Keep track. Waste less. Cook smarter.
 
-An Expo SDK 57 / React Native / TypeScript university project for tracking food,
-reducing waste and finding recipes. SQLite is the offline-first runtime store;
-Supabase provides authentication, private avatars and per-account cloud sync.
+Offline-first mobile pantry manager for Android.
+
+Track food, scan products, monitor expiration dates, discover recipes  
+and keep your pantry synchronized across devices.
+
+<br/>
+
+[![Download APK](https://img.shields.io/badge/Download_APK-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NeroRebel/SmartPantry/releases/latest/download/SmartPantry.apk)
+
+</div>
+
+<p align="center">
+  <img src="docs/images/showcase.png" alt="SmartPantry showcase" width="900"/>
+</p>
 
 ## Development
 
