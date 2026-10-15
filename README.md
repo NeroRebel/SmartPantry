@@ -17,6 +17,8 @@ and keep your pantry synchronized across devices.
 
 <br/>
 
+![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
+
 ## 🎬 SmartPantry in Action
 
 See the complete SmartPantry workflow in action — pantry tracking,
@@ -27,7 +29,7 @@ https://github.com/user-attachments/assets/0ae3dd25-a343-4550-8092-908a123bad0f
 
 </div>
 
-![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
+
 
 ## Development
 
