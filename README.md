@@ -183,27 +183,4 @@ Example structure:
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    UI[React Native UI]
-
-    SQLite[(SQLite)]
-    Sync[Sync Layer]
-    Postgres[(Supabase Postgres)]
-
-    Auth[Supabase Auth]
-    Storage[Supabase Storage]
-
-    OFF[Open Food Facts]
-    Meal[TheMealDB]
-
-    UI --> SQLite
-
-    SQLite <--> Sync
-    Sync <--> Postgres
-
-    UI --> Auth
-    UI --> Storage
-
-    UI --> OFF
-    UI --> Meal
+[![Architecture diagram](https://gitdiagram.com/diagram-badge.svg)](https://gitdiagram.com/nerorebel/smartpantry?utm_source=readme&utm_medium=badge)
