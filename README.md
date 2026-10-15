@@ -1,307 +1,571 @@
+<div align="center">
+
+<img src="assets/images/icon.png" alt="SmartPantry Logo" width="150"/>
+
 # SmartPantry
 
-<p align="center">
-  <img src="assets/images/icon.png" alt="SmartPantry icon" width="140" />
-</p>
+### Keep track. Waste less. Cook smarter.
 
-<h3 align="center">Keep track. Waste less. Cook smarter.</h3>
+**Offline-first mobile pantry manager for Android**
 
-<p align="center">
-  Offline-first mobile pantry manager built with React Native, Expo, TypeScript, SQLite and Supabase.
-</p>
+Track food, scan products, monitor expiration dates, discover recipes  
+and keep your pantry synchronized across devices.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React%20Native-20232A?logo=react&logoColor=61DAFB" alt="React Native" />
-  <img src="https://img.shields.io/badge/Expo-000020?logo=expo&logoColor=white" alt="Expo" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite" />
-  <img src="https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white" alt="Supabase" />
-  <img src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white" alt="Android" />
-</p>
+<br/>
+
+[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.android.com/)
+
+<br/>
+
+[![Download SmartPantry](https://img.shields.io/badge/Download_SmartPantry-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NeroRebel/SmartPantry/releases/latest/download/SmartPantry.apk)
+
+**Android · Version 1.0.0**
+
+[Latest Release](https://github.com/NeroRebel/SmartPantry/releases/latest)
+·
+[Architecture](#architecture)
+·
+[Documentation](#documentation)
+
+</div>
 
 ---
 
 ## About
 
-**SmartPantry** is a mobile application for managing household food, tracking expiration dates, reducing food waste and discovering recipes based on ingredients already available at home.
+**SmartPantry** is a mobile application for managing household food and reducing food waste.
 
-The app is designed around an **offline-first architecture**. SQLite remains the main local runtime database, while Supabase provides authentication, cloud synchronization, private avatar storage and account-specific backend data.
+It allows users to track pantry products, monitor expiration dates, scan barcodes, discover recipes based on ingredients they already have, maintain a shopping list, and analyze consumed or wasted food.
+
+The application follows an **offline-first architecture**:
+
+- **SQLite** is the primary runtime database.
+- The application remains usable without an internet connection.
+- **Supabase** provides authentication, secure cloud synchronization, profile storage, avatar storage, and backend services.
+- Local changes are synchronized when a connection becomes available.
 
 SmartPantry was developed as a university project, but its architecture and feature set are designed to resemble a production mobile application.
 
 ---
 
-## Features
+## Download
 
-### Pantry Management
+<div align="center">
 
-- Add, edit and remove pantry products
-- Automatic expiration status:
-  - Fresh
-  - Expiring Soon
-  - Expired
-- Quick Add presets
-- Product details and notes
-- Storage location tracking
-- Quantity and unit management
+### Android
 
-### Barcode Scanner
+[![Download APK](https://img.shields.io/badge/Download_APK-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NeroRebel/SmartPantry/releases/latest/download/SmartPantry.apk)
 
-- Barcode scanning using the device camera
-- Manual barcode entry
-- Product lookup through **Open Food Facts**
-- Fallback product search by name
-- Manual product creation when no result is found
+The latest signed Android APK is available through **GitHub Releases**.
 
-### Recipes
+</div>
 
-- Recipe discovery powered by **TheMealDB**
-- Recipe search and categories
-- Detailed recipe view
-- Pantry-to-recipe ingredient matching
-- Available and missing ingredient calculation
-- Match percentage
-- Add missing ingredients directly to the Shopping List
-
-### Shopping List
-
-- Add, edit and delete items
-- Mark items as purchased
-- Separate To Buy / Purchased sections
-- Clear purchased items
-- Persistent local storage
-
-### Product History & Statistics
-
-Products can be marked as:
-
-- Consumed
-- Wasted
-
-SmartPantry preserves product snapshots in history and provides statistics including:
-
-- Consumed products
-- Wasted products
-- Total processed items
-- Waste rate
-- Most wasted categories
-- Recent activity
-- 7 Days / 30 Days / All Time filters
-
-### Expiration Notifications
-
-- Local expiration reminders
-- Configurable reminder timing
-- Automatic rescheduling after product edits
-- Automatic cancellation after deletion, consumption or waste
-- Notification reconciliation after cloud synchronization
-
-### Authentication & Account Management
-
-- Email/password authentication
-- Google OAuth
-- Email confirmation
-- Persistent sessions
-- Forgot password
-- Reset password
-- Change password
-- Change email
-- Profile editing
-- Sign out
-- Secure account deletion
-
-### Profile & Avatars
-
-- Display name
-- Email
-- Authentication provider
-- Account creation date
-- Custom profile photo
-- Google avatar fallback
-- Initials fallback
-- Private avatar storage through Supabase Storage
-
-### Offline-First Cloud Sync
-
-SmartPantry remains fully usable without internet access.
-
-Local changes are stored in SQLite first and synchronized with Supabase when connectivity is available.
-
-Features include:
-
-- Per-account local caches
-- Initial local/cloud merge
-- Last Write Wins conflict resolution
-- Tombstones for deleted records
-- Manual **Sync now**
-- Automatic synchronization
-- Offline and sync status
-- Account isolation
-- Remote expiration-notification reconciliation
-
-### Localization
-
-SmartPantry currently supports:
-
-- English
-- Slovak
-- Russian
-- Ukrainian
-- Hungarian
-
-### Appearance
-
-- Light theme
-- Dark theme
-- System theme
-- High Contrast mode
-- Multiple accent colors
-- Semantic status colors for fresh, expiring and expired products
+> Android may ask you to allow installation from unknown sources when installing an APK outside Google Play.
 
 ---
 
 ## Screenshots
 
-> Screenshots will be added from the Android release build.
+> Add release screenshots to `docs/screenshots/` and enable the block below.
 
 <!--
-Example structure:
-
 <p align="center">
-  <img src="docs/screenshots/home.png" width="220" />
-  <img src="docs/screenshots/inventory.png" width="220" />
-  <img src="docs/screenshots/scanner.png" width="220" />
+  <img src="docs/screenshots/home.png" width="210" alt="Home"/>
+  <img src="docs/screenshots/inventory.png" width="210" alt="Inventory"/>
+  <img src="docs/screenshots/scanner.png" width="210" alt="Scanner"/>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/recipes.png" width="220" />
-  <img src="docs/screenshots/profile.png" width="220" />
+  <img src="docs/screenshots/recipes.png" width="210" alt="Recipes"/>
+  <img src="docs/screenshots/statistics.png" width="210" alt="Statistics"/>
+  <img src="docs/screenshots/profile.png" width="210" alt="Profile"/>
 </p>
 -->
 
 ---
 
-## Architecture
+# Features
 
-[![Architecture diagram of nerorebel/smartpantry](https://gitdiagram.com/nerorebel/smartpantry/diagram.png)](https://gitdiagram.com/nerorebel/smartpantry?utm_source=readme&utm_medium=picture)
+## Pantry Management
 
-The application does not require Supabase to complete normal pantry operations. Cloud synchronization happens independently of local CRUD.
+- Add, edit, and remove products
+- Track quantity and units
+- Store expiration dates
+- Assign storage locations
+- Add notes and product information
+- Quick Add product presets
+- Automatic expiration status:
+  - 🟢 Fresh
+  - 🟠 Expiring Soon
+  - 🔴 Expired
 
-## Tech Stack
+## Barcode Scanner
+
+SmartPantry includes a native barcode scanner powered by **Expo Camera**.
+
+- Camera barcode scanning
+- Manual barcode entry
+- Product lookup through **Open Food Facts**
+- Fallback product search by name
+- Manual product creation
+- Original scanned barcode preservation
+
+If Open Food Facts does not contain the scanned product, SmartPantry allows the user to search for a similar product or create it manually.
+
+## Recipes
+
+Recipes are provided through **TheMealDB**.
+
+- Recipe discovery
+- Search
+- Categories
+- Recipe details
+- Ingredients and instructions
+- Pantry-based recipe matching
+- Missing ingredient detection
+- Match percentage calculation
+- Add missing ingredients directly to the Shopping List
+
+### From My Pantry
+
+```text
+Pantry
+   ↓
+Ingredient normalization
+   ↓
+Recipe matching
+   ↓
+Available / Missing ingredients
+   ↓
+Match percentage
+```
+
+## Shopping List
+
+- Add items
+- Edit items
+- Delete items
+- Mark products as purchased
+- Separate **To Buy** and **Purchased** sections
+- Clear purchased items
+- Add missing recipe ingredients
+- Offline persistence
+- Cloud synchronization
+
+## Product History
+
+Products can be marked as:
+
+- **Consumed**
+- **Wasted**
+
+Instead of losing the information, SmartPantry stores a snapshot of the product in history.
+
+## Statistics
+
+SmartPantry provides insight into food usage and waste:
+
+- Consumed products
+- Wasted products
+- Total processed products
+- Waste rate
+- Most wasted categories
+- Recent activity
+- 7 Days / 30 Days / All Time filters
+
+## Expiration Notifications
+
+- Configurable reminder timing
+- Automatic scheduling
+- Rescheduling after expiration-date changes
+- Cancellation after deletion
+- Cancellation after consumption or waste
+- Notification reconciliation after cloud synchronization
+
+No remote push infrastructure is required.
+
+---
+
+# Authentication & Accounts
+
+Authentication is provided by **Supabase Auth**.
+
+Supported functionality:
+
+- Email/password registration
+- Email confirmation
+- Email/password sign in
+- Google OAuth
+- Persistent sessions
+- Forgot Password
+- Reset Password
+- Change Password
+- Change Email
+- Sign Out
+- Secure Delete Account
+
+Google-only accounts automatically hide password-management functionality where it is not applicable.
+
+---
+
+## Profile
+
+Users can manage:
+
+- Display name
+- Email
+- Authentication provider
+- Account creation date
+- Profile avatar
+- Password
+- Email address
+- Cloud synchronization
+- Account deletion
+
+The profile can be opened directly from the avatar on the Home screen or through More.
+
+## Avatar Storage
+
+Custom avatars are stored in a private **Supabase Storage** bucket.
+
+```text
+Custom SmartPantry avatar
+        ↓
+Google avatar
+        ↓
+Initials fallback
+```
+
+Storage access is protected by user-specific policies.
+
+---
+
+# Offline-First Cloud Sync
+
+One of the core architectural features of SmartPantry is offline-first synchronization.
+
+```text
+                   ┌─────────────────────┐
+                   │     SmartPantry     │
+                   │  React Native UI    │
+                   └──────────┬──────────┘
+                              │
+                              ▼
+                       ┌────────────┐
+                       │   SQLite   │
+                       │ Local DB   │
+                       └─────┬──────┘
+                             │
+                             │ Sync
+                             ▼
+                    ┌─────────────────┐
+                    │   Sync Service  │
+                    └────────┬────────┘
+                             │
+                             ▼
+                  ┌────────────────────┐
+                  │ Supabase Postgres  │
+                  │    Cloud Data      │
+                  └────────────────────┘
+```
+
+SQLite remains the primary runtime database.
+
+Local CRUD operations **never wait for Supabase**.
+
+### Synchronization features
+
+- Initial local/cloud merge
+- Per-account local caches
+- Local user ownership
+- Automatic synchronization
+- Manual **Sync now**
+- Offline mode
+- Sync status
+- Tombstones for deleted records
+- Account isolation
+- Notification reconciliation
+- Retry handling
+
+### Conflict Resolution
+
+The current synchronization strategy uses **Last Write Wins** based on `updated_at`.
+
+```text
+Local newer  → upload local version
+Remote newer → apply remote version
+Same version → no change
+```
+
+Deleted records use `deleted_at` tombstones to prevent deleted data from being recreated by another device.
+
+---
+
+# Architecture
+
+<div align="center">
+
+[![SmartPantry Architecture](https://gitdiagram.com/nerorebel/smartpantry/diagram.png)](https://gitdiagram.com/nerorebel/smartpantry)
+
+**Click the diagram to explore the project architecture**
+
+</div>
+
+### High-level architecture
+
+```mermaid
+flowchart LR
+    UI[React Native UI]
+
+    SQLite[(SQLite)]
+    Sync[Sync Service]
+    Postgres[(Supabase Postgres)]
+
+    Auth[Supabase Auth]
+    Storage[Supabase Storage]
+
+    OFF[Open Food Facts]
+    Meal[TheMealDB]
+
+    UI --> SQLite
+
+    SQLite <--> Sync
+    Sync <--> Postgres
+
+    UI --> Auth
+    UI --> Storage
+
+    UI --> OFF
+    UI --> Meal
+```
+
+The application does not depend on Supabase for normal pantry operations.
+
+Cloud synchronization happens independently of local CRUD.
+
+---
+
+# Tech Stack
+
 | Area | Technology |
 |---|---|
 | Mobile | React Native |
 | Framework | Expo |
 | Language | TypeScript |
 | Navigation | Expo Router |
-| Local database | Expo SQLite |
+| Local Database | Expo SQLite |
 | Backend | Supabase |
 | Authentication | Supabase Auth |
-| Cloud database | Supabase Postgres |
-| File storage | Supabase Storage |
-| Barcode scanning | Expo Camera |
+| Cloud Database | Supabase Postgres |
+| File Storage | Supabase Storage |
+| Barcode Scanning | Expo Camera |
 | Notifications | Expo Notifications |
-| Product data | Open Food Facts |
+| Image Selection | Expo Image Picker |
+| Product Database | Open Food Facts |
 | Recipes | TheMealDB |
 | Localization | Expo Localization + custom i18n |
-| Version control | Git / GitHub |
+| Version Control | Git / GitHub |
 
-## Cloud Backend
-Supabase currently stores:
+---
+
+# Cloud Backend
+
+Supabase currently manages:
+
+```text
 auth.users
+
 profiles
 products
 shopping_list
 product_history
-avatars/
 
-User-owned tables are protected using Row Level Security (RLS).
-Each authenticated user can only access their own cloud records.
-The account-deletion flow is implemented through a Supabase Edge Function and removes:
-- Auth account
-- Profile
-- Products
-- Shopping List
-- Product History
-- Avatar files
-- Local account cache
-- Account-specific notifications
+Storage
+└── avatars/
 
-## Offline-First Synchronization
+Edge Functions
+└── delete-account
+```
 
-The synchronization architecture intentionally keeps SQLite as the runtime database.
-SQLite
-  ↕
-Sync service
-  ↕
-Supabase Postgres
+All user-owned database tables are protected using **Row Level Security (RLS)**.
 
-Current synchronization strategy:
-- Existing local data is preserved during migrations
-- Local and remote records are merged by (user_id, id)
-- updated_at is used for conflict resolution
-- Current conflict strategy: Last Write Wins
-- Deleted records use deleted_at tombstones
-- Failed synchronization does not block local usage
+Authenticated users can only access records belonging to their own account.
 
-## Download
-### Android
-The latest Android APK is available from the repository's GitHub Releases page.
-Recommended release filename:
-SmartPantry-v1.0.0.apk
+## Secure Account Deletion
 
-Android may ask you to allow installation from unknown sources when installing an APK outside Google Play.
+Account deletion is handled through a server-side Supabase Edge Function.
 
-## Development
-Requirements
-- Node.js 22.13+
-- npm
-- Java 17
-- Android SDK 36
-- Android NDK 27.1.12297006
-Clone the repository:
+```text
+Authentication account
+        ↓
+Profile
+        ↓
+Products
+        ↓
+Shopping List
+        ↓
+Product History
+        ↓
+Avatar files
+        ↓
+Local SQLite account cache
+        ↓
+Local notifications
+```
+
+Other users' local caches and cloud data are not affected.
+
+---
+
+# Localization
+
+SmartPantry supports five languages:
+
+| Language | Code |
+|---|---|
+| 🇬🇧 English | `en` |
+| 🇸🇰 Slovak | `sk` |
+| 🇷🇺 Russian | `ru` |
+| 🇺🇦 Ukrainian | `uk` |
+| 🇭🇺 Hungarian | `hu` |
+
+External recipe content is displayed in the language supplied by the external API.
+
+---
+
+# Appearance
+
+SmartPantry supports:
+
+- Dark theme
+- Light theme
+- System theme
+- High Contrast mode
+
+Accent colors:
+
+- Orange
+- Purple
+- Green
+- Red
+- Yellow
+
+Semantic colors remain independent from the selected accent:
+
+```text
+Fresh         → Green
+Expiring Soon → Orange / Yellow
+Expired       → Red
+```
+
+---
+
+# Development
+
+## Requirements
+
+```text
+Node.js 22.13+
+npm
+Java 17
+Android SDK 36
+Android NDK 27.1.12297006
+```
+
+### Clone
+
+```bash
 git clone https://github.com/NeroRebel/SmartPantry.git
 cd SmartPantry
+```
 
-Install dependencies:
+### Install dependencies
+
+```bash
 npm ci
+```
 
-Create a local .env file based on:
-.env.example
+## Environment
 
-Required public variables:
+Create `.env` based on `.env.example`.
+
+Required variables:
+
+```env
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
 
-Never place server-side or administrative Supabase secrets in the mobile application.
+Only the public Supabase URL and publishable key belong in the mobile environment.
 
-## Running the Development Build
+Never place administrative or server-side Supabase credentials inside the application.
 
-SmartPantry uses native Expo modules and should be tested using a development build, not Expo Go.
-Build Android:
+---
+
+# Development Build
+
+SmartPantry uses native Expo modules and should be tested with an **Expo Development Build**, not Expo Go.
+
+### Build Android
+
+```bash
 npx expo run:android
+```
 
-Start Metro for the development client:
+### Start Metro
+
+```bash
 npx expo start --dev-client
+```
 
-## Android Release Build
-From:
-android/
+---
 
-run:
+# Android Release
+
+Current release:
+
+```text
+SmartPantry 1.0.0
+versionCode 1
+package: com.nerorebel.smartpantry
+```
+
+Build:
+
+```powershell
+cd android
 .\gradlew assembleRelease
+```
 
-Release APK output:
+Output:
+
+```text
 android/app/build/outputs/apk/release/app-release.apk
+```
 
-Release signing requires the production/upload keystore configuration described in the release documentation.
-## Project Structure
+Release builds must be signed using the same production/upload keystore to remain upgrade-compatible.
+
+---
+
+# Project Structure
+
+```text
 SmartPantry/
+│
 ├── assets/
 │   └── images/
+│
 ├── docs/
+│
 ├── plugins/
+│
 ├── scripts/
+│
 ├── src/
 │   ├── api/
 │   ├── app/
@@ -318,68 +582,181 @@ SmartPantry/
 │   ├── theme/
 │   ├── types/
 │   └── utils/
+│
 ├── supabase/
 │   └── functions/
+│
 ├── tests/
+│
 ├── app.json
 ├── package.json
 └── project.md
+```
 
-## Documentation
-Additional technical documentation is available in:
-- [`docs/auth-setup.md`](docs/auth-setup.md) — authentication, OAuth and account management
-- [`docs/cloud-sync.md`](docs/cloud-sync.md) — offline-first synchronization architecture
-- [`docs/data-handling.md`](docs/data-handling.md) — application data handling
-- [`docs/polish-qa.md`](docs/polish-qa.md) — UI/UX QA and polish pass
-- [`docs/release-readiness.md`](docs/release-readiness.md) — Android release preparation and verification
-## Security
-SmartPantry follows several security rules:
-- Passwords are handled by Supabase Auth
-- Passwords are never stored by SmartPantry
-- Mobile builds contain only the Supabase publishable key
-- Supabase service-role credentials are server-side only
-- Row Level Security protects cloud data
-- Avatar storage uses user-specific access policies
-- Account deletion uses a server-side Edge Function
-- .env, keystores and release artifacts are excluded from Git
-## External Services
-Open Food Facts
-Used for barcode-based and name-based product lookup.
-Product coverage depends on the Open Food Facts database and may vary by region.
-TheMealDB
-Used for recipe discovery, search, categories and recipe details.
-Recipe content is provided by the external API and is not translated by SmartPantry.
-Supabase
+---
+
+# Documentation
+
+| Document | Description |
+|---|---|
+| [`auth-setup.md`](docs/auth-setup.md) | Authentication, OAuth and account management |
+| [`cloud-sync.md`](docs/cloud-sync.md) | Offline-first synchronization architecture |
+| [`data-handling.md`](docs/data-handling.md) | Application data handling |
+| [`polish-qa.md`](docs/polish-qa.md) | UI/UX audit and QA |
+| [`release-readiness.md`](docs/release-readiness.md) | Android release preparation |
+
+---
+
+# Security
+
+SmartPantry follows several security principles:
+
+- Passwords are managed by Supabase Auth
+- SmartPantry never stores passwords
+- The mobile application contains only the Supabase publishable key
+- Service-role credentials remain server-side
+- Row Level Security protects cloud records
+- Storage policies protect avatars
+- Account deletion runs through a server-side Edge Function
+- `.env` files are excluded from Git
+- Android keystores are excluded from Git
+- APK/AAB build artifacts are excluded from Git
+
+---
+
+# External Services
+
+### Open Food Facts
+
 Used for:
+
+- Barcode product lookup
+- Product-name fallback search
+
+Product availability depends on the Open Food Facts community database and may vary by country or product.
+
+### TheMealDB
+
+Used for:
+
+- Recipe discovery
+- Recipe search
+- Categories
+- Recipe details
+
+### Supabase
+
+Used for:
+
 - Authentication
-- Postgres cloud storage
+- PostgreSQL cloud storage
 - Avatar storage
 - Edge Functions
-- Cloud synchronization
+- Offline-first synchronization backend
 
-## Known Limitations
-- The first synchronization implementation uses whole-row Last Write Wins conflict resolution.
-- Clock skew between devices may influence conflict resolution.
-- Simultaneous offline lifecycle actions on multiple devices may produce duplicate history events.
+---
+
+# Project Status
+
+### SmartPantry v1.0.0
+
+| Feature | Status |
+|---|:---:|
+| Inventory | ✅ |
+| Barcode Scanner | ✅ |
+| Open Food Facts | ✅ |
+| Recipes | ✅ |
+| Pantry Matching | ✅ |
+| Shopping List | ✅ |
+| Product History | ✅ |
+| Statistics | ✅ |
+| Notifications | ✅ |
+| Google Authentication | ✅ |
+| Email Authentication | ✅ |
+| Profile | ✅ |
+| Avatar Upload | ✅ |
+| Password Management | ✅ |
+| Change Email | ✅ |
+| Delete Account | ✅ |
+| Offline Mode | ✅ |
+| Cloud Sync | ✅ |
+| Account Isolation | ✅ |
+| Localization | ✅ |
+| Themes | ✅ |
+| Android Release | ✅ |
+
+---
+
+# Testing
+
+The project includes automated tests covering major application logic including:
+
+- Authentication
+- Avatar handling
+- Notifications
+- Products
+- Recipes
+- Cloud synchronization
+- Account isolation
+- UI polish
+- Release configuration
+
+Release preparation completed with:
+
+```text
+TypeScript     ✅
+Lint           ✅
+Tests          ✅
+Android Build  ✅
+Signed APK     ✅
+```
+
+---
+
+# Known Limitations
+
+- Synchronization currently uses whole-row Last Write Wins conflict resolution.
+- Device clock differences may influence synchronization conflict resolution.
+- Simultaneous offline lifecycle actions on multiple devices may create duplicate history events.
 - Open Food Facts does not contain every commercial product.
-- Recipe matching currently uses lightweight ingredient normalization rather than advanced NLP.
+- Recipe ingredient matching currently uses lightweight normalization rather than advanced NLP.
 - iOS has not yet received the same level of physical-device testing as Android.
 
-## Future Improvements
-Possible future development includes:
-- AI-generated recipes
-- Improved ingredient matching
-- Nutrition information
-- Favorite recipes
-- Richer analytics
-- Onboarding
-- Additional synchronization conflict handling
-- iOS release testing
-License
-This project is licensed under the MIT License.
-See LICENSE for details.
-<p align="center">
-  <strong>SmartPantry</strong><br />
-  Keep track. Waste less. Cook smarter.
-</p>
-```
+---
+
+# Future Improvements
+
+Potential future development:
+
+- 🤖 AI-generated recipes
+- 🥗 Nutrition information
+- ❤️ Favorite recipes
+- 🧠 Improved ingredient matching
+- 📊 Advanced analytics
+- 👋 User onboarding
+- 🔄 Advanced synchronization conflict handling
+- 🍎 Full iOS release
+
+---
+
+# License
+
+This project is licensed under the **MIT License**.
+
+See [`LICENSE`](LICENSE) for details.
+
+---
+
+<div align="center">
+
+<img src="assets/images/icon.png" width="80" alt="SmartPantry"/>
+
+### SmartPantry
+
+**Keep track. Waste less. Cook smarter.**
+
+<br/>
+
+[![Download Android APK](https://img.shields.io/badge/Download_Android_APK-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NeroRebel/SmartPantry/releases/latest/download/SmartPantry.apk)
+
+</div>
