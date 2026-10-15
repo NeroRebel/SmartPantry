@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -17,6 +17,8 @@ import type { ProductHistoryAction } from '@/types/product-history';
 import { formatQuantity, getProductStatus } from '@/utils/product-status';
 import { categoryLabel, expirationLabel, storageLabel } from '@/i18n/format';
 import { getLocalUserId } from '@/db/local-state';
+import { confirmAction } from '@/utils/confirm-action';
+import { showFeedback } from '@/services/feedback';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -60,9 +62,10 @@ function ProductDetails({ product }: { product: Product }) {
     setBusy('delete');
     try {
       await removeProduct(product.id);
+      showFeedback('polish.productDeleted', { owner });
       router.dismissTo('/(tabs)/inventory');
     } catch {
-      Alert.alert(t('product.unableDelete'), t('product.deleteError'));
+      showFeedback('product.deleteError', { tone: 'error', owner });
     } finally {
       busyRef.current = false;
       setBusy(null);
@@ -75,9 +78,10 @@ function ProductDetails({ product }: { product: Product }) {
     setBusy(action);
     try {
       await finishProduct(product.id, action);
+      showFeedback(action === 'consumed' ? 'polish.consumed' : 'polish.wasted', { owner });
       router.dismissTo('/(tabs)/inventory');
     } catch {
-      Alert.alert(t('product.unableUpdate'), t('product.outcomeError'));
+      showFeedback('product.outcomeError', { tone: 'error', owner });
     } finally {
       busyRef.current = false;
       setBusy(null);
@@ -87,26 +91,13 @@ function ProductDetails({ product }: { product: Product }) {
   function confirmOutcome(action: ProductHistoryAction) {
     const label = action === 'consumed' ? t('common.consumed') : t('common.wasted');
     const message = t('product.outcomeConfirm', { name: product.name, action: label });
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) void complete(action);
-    } else {
-      Alert.alert(action === 'consumed' ? t('product.markConsumed') : t('product.markWasted'), message, [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.confirm'), onPress: () => void complete(action) },
-      ]);
-    }
+    confirmAction({ title: t(action === 'consumed' ? 'product.markConsumed' : 'product.markWasted'), message,
+      cancel: t('common.cancel'), confirm: t('common.confirm'), destructive: action === 'wasted', onConfirm: () => void complete(action) });
   }
 
   function confirmDelete() {
     const message = t('product.deleteConfirm', { name: product.name });
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) void remove();
-    } else {
-      Alert.alert(t('product.delete'), message, [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.delete'), style: 'destructive', onPress: () => void remove() },
-      ]);
-    }
+    confirmAction({ title: t('product.delete'), message, cancel: t('common.cancel'), confirm: t('common.delete'), destructive: true, onConfirm: () => void remove() });
   }
 
   return (
@@ -154,17 +145,17 @@ function ProductDetails({ product }: { product: Product }) {
 
         <View style={styles.outcomes}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('product.markConsumed')} disabled={busy !== null} onPress={() => confirmOutcome('consumed')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
-            <Ionicons name="checkmark-circle-outline" size={23} color={colors.fresh} />
+            {busy === 'consumed' ? <ActivityIndicator color={colors.fresh} /> : <Ionicons name="checkmark-circle-outline" size={23} color={colors.fresh} />}
             <Text style={styles.outcomeText}>{busy === 'consumed' ? t('common.saving') : t('product.markConsumed')}</Text>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={t('product.markWasted')} disabled={busy !== null} onPress={() => confirmOutcome('wasted')} style={({ pressed }) => [styles.outcomeButton, (pressed || busy !== null) && styles.pressed]}>
-            <Ionicons name="trash-outline" size={23} color={colors.soon} />
+            {busy === 'wasted' ? <ActivityIndicator color={colors.soon} /> : <Ionicons name="trash-outline" size={23} color={colors.soon} />}
             <Text style={styles.outcomeText}>{busy === 'wasted' ? t('common.saving') : t('product.markWasted')}</Text>
           </Pressable>
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel={t('product.delete')} disabled={busy !== null} onPress={confirmDelete} style={({ pressed }) => [styles.deleteButton, (pressed || busy !== null) && styles.pressed]}>
-          <Ionicons name="trash-outline" size={18} color={colors.expired} />
+          {busy === 'delete' ? <ActivityIndicator color={colors.danger} /> : <Ionicons name="trash-outline" size={18} color={colors.expired} />}
           <Text style={styles.deleteText}>{busy === 'delete' ? t('common.saving') : t('product.delete')}</Text>
         </Pressable>
       </ScrollView>
@@ -178,7 +169,7 @@ export default function ProductDetailScreen() {
   const load = useCallback(() => productId ? getProductById(productId) : Promise.resolve(null), [productId]);
   const { data: product, loading, error, reload } = useFocusedData(load);
 
-  if (loading || error || !product) {
+  if ((loading && !product) || error || !product) {
     return <ProductLoadState loading={loading} error={error} onRetry={reload} onBack={() => router.dismissTo('/(tabs)/inventory')} />;
   }
 
@@ -207,11 +198,11 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   notesText: { color: colors.secondary, fontSize: 14, lineHeight: 22 },
   reminderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: 18 },
   editButton: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 15, backgroundColor: colors.text, borderRadius: 16 },
-  editText: { color: colors.background, fontSize: 15, fontWeight: '700' },
+  editText: { color: colors.background, fontSize: 15, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   outcomes: { flexDirection: 'row', gap: 12 },
   outcomeButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 16 },
   outcomeText: { color: colors.text, textAlign: 'center', fontSize: 13, lineHeight: 20, fontWeight: '600' },
   deleteButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  deleteText: { color: colors.expired, fontSize: 14, fontWeight: '600' },
+  deleteText: { color: colors.expired, fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   pressed: { opacity: 0.7 },
 });

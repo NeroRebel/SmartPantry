@@ -33,7 +33,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       current.current = stored;
       setSettings(stored);
       void i18n.changeLanguage(stored.language);
-    }).catch((error) => { if (__DEV__) console.warn('[SmartPantry] Could not load appearance:', error); });
+    }).catch(() => { if (__DEV__) console.warn('[SmartPantry] Could not load appearance'); });
     return () => { active = false; };
   }, []);
 

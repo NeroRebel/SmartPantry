@@ -94,7 +94,7 @@ export default function InventoryScreen() {
 
         {error ? (
           <View style={styles.empty}>
-            <Text accessibilityRole="alert" style={styles.emptyText}>{error}</Text>
+            <Text accessibilityRole="alert" style={styles.emptyText}>{t(error)}</Text>
             <Pressable accessibilityRole="button" onPress={reload} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{t('common.tryAgain')}</Text></Pressable>
           </View>
         ) : loading && !data ? (
@@ -118,6 +118,7 @@ export default function InventoryScreen() {
               <Text style={styles.emptyTitle}>{allProducts.length === 0 ? t('inventory.noProducts') : !search && filter === 'expired' ? t('inventory.nothingExpired') : t('inventory.noResults')}</Text>
               <Text style={styles.emptyText}>{allProducts.length === 0 ? t('inventory.noProductsBody') : !search && filter === 'expired' ? t('inventory.lookingGood') : t('inventory.noResultsBody')}</Text>
               {allProducts.length === 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/product/add')} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{t('inventory.addProduct')}</Text></Pressable>}
+              {allProducts.length > 0 && (search || filter !== 'all') && <Pressable accessibilityRole="button" onPress={() => { setQuery(''); setFilter('all'); }} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{t('common.all')}</Text></Pressable>}
             </View>
           }
         />}

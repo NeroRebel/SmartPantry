@@ -41,7 +41,7 @@ export default function CheckEmailScreen() {
 
   return <SafeAreaView style={styles.screen}>
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
         <View style={styles.brand}><View style={styles.brandIcon}><Ionicons name="leaf-outline" size={30} color={colors.accent} /></View><Text style={styles.brandName}>SmartPantry</Text></View>
         <Text accessibilityRole="header" style={styles.title}>{t('confirmation.title')}</Text>
         <Text style={styles.body}>{t(auth.pendingVerification ? 'confirmation.sent' : 'confirmation.enterEmail')}</Text>

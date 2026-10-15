@@ -24,8 +24,10 @@ function TabIcon({
   const { colors, styles } = useThemedStyles(createStyles);
   if (elevated) {
     return (
-      <View style={[styles.scanButton, focused && styles.scanButtonFocused]}>
-        <Ionicons name={name} size={size + 5} color={colors.onAccent} />
+      <View pointerEvents="none" style={styles.scanIconSlot}>
+        <View style={[styles.scanButton, focused && styles.scanButtonFocused]}>
+          <Ionicons name={name} size={size + 5} color={colors.onAccent} />
+        </View>
       </View>
     );
   }
@@ -120,10 +122,13 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  scanIconSlot: { width: 24, height: 24 },
   scanButton: {
+    position: 'absolute',
+    top: -26,
+    left: -17,
     width: 58,
     height: 58,
-    marginTop: -26,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 29,
@@ -138,7 +143,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     backgroundColor: colors.accentFill,
   },
   scanLabel: {
-    marginTop: 18,
     fontSize: 11,
     fontWeight: '700',
   },

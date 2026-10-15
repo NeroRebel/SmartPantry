@@ -43,7 +43,6 @@ export function createSyncService(dependencies: SyncDependencies & { reconcileRe
       if (!stillCurrent()) return;
       const abort = new AbortController(); controller = abort;
       const timeout = setTimeout(() => abort.abort(), 60000);
-      const start = Date.now();
       pending = false;
       publish({ status: 'syncing', errorKey: null });
       try {
@@ -61,7 +60,6 @@ export function createSyncService(dependencies: SyncDependencies & { reconcileRe
         if (!stillCurrent()) return;
         retries = 0;
         publish({ status: 'synced', lastSuccessfulSyncAt: now, errorKey: null });
-        if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Sync completed', { duration_ms: Date.now() - start });
       } catch (error) {
         if (!stillCurrent()) return;
         const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : '';

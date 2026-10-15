@@ -1,68 +1,33 @@
 # SmartPantry
 
-## What problem am I solving?
+SmartPantry is a feature-complete university project helping users organize food,
+monitor expiry dates, reduce waste and discover recipes from pantry ingredients.
 
-SmartPantry helps users reduce food waste by keeping track of food products at home and notifying them before the products expire.
+## Implemented Scope
 
-## Who are my users?
+- Expo SDK 57, React Native, Expo Router and strict TypeScript.
+- SQLite offline-first inventory, shopping list and product history/statistics.
+- Supabase email/Google auth, confirmation/recovery links, profile editing,
+  private avatar storage and server-side account deletion.
+- Account-isolated SQLite cache, tombstones and last-write-wins cloud sync.
+- Manual/Quick Add, camera barcodes, Open Food Facts lookup and name-search fallback.
+- TheMealDB recipes, local ingredient matching and missing-ingredient shopping actions.
+- Local expiration reminders; no remote push infrastructure.
+- English, Slovak, Russian, Ukrainian and Hungarian; light/dark/system themes,
+  high contrast and selectable accents.
 
-The target users are people who want to organize the food they have at home, monitor expiration dates, and reduce unnecessary food waste.
+## Boundaries
 
-The application is mainly intended for:
-- students,
-- people living alone,
-- households and families,
-- users who want to plan food consumption more efficiently.
+SQLite remains the local runtime source of truth; cloud sync never replaces local
+CRUD. Auth/profile metadata and avatar storage use Supabase. RLS restricts remote
+rows/files to their authenticated owner. No AI, Realtime collaboration, household
+sharing, calorie tracking or cloud settings sync is implemented.
 
-## How do I want to solve the problem? — MVP
+## Release Status
 
-The minimum viable product will allow the user to:
-
-- add a food product manually,
-- scan a product barcode using the phone camera,
-- store the product name, quantity, and expiration date,
-- view a list of stored food products,
-- categorize products by status:
-  - fresh,
-  - expiring soon,
-  - expired,
-- edit or delete products,
-- receive a local notification when a product is close to its expiration date.
-
-The main goal of the MVP is to provide a simple digital overview of the food products the user currently has at home.
-
-## What will not be included in the MVP? — Non-goals
-
-The first version of the application will not include:
-
-- **AI-based food recognition from photos** — this would require image processing or an external AI service and is not necessary for the core functionality.
-- **AI-generated recipe recommendations** — this can be added later as an optional extension.
-- **Personalized nutrition plans and calorie tracking** — the MVP focuses primarily on food inventory and expiration tracking.
-- **Social features and shared household accounts** — these would require authentication, user management, and data synchronization.
-- **A complex cloud backend** — local storage is sufficient for the MVP.
-
-These features are excluded from the MVP to keep the first version simple, realistic, and focused on the main problem.
-
-## Technologies
-
-### Mobile application
-- React Native
-- Expo
-- TypeScript
-
-### Local data storage
-- SQLite
-- Expo SQLite
-
-### Phone features
-- Camera — barcode scanning
-- Local notifications — expiration date reminders
-
-### External services
-- Open Food Facts API — retrieving basic product information using a barcode
-
-### Development and version control
-- Visual Studio Code
-- Git
-- GitHub
-- Codex
+Version 1.0.0 / Android code 1. Local Gradle is the primary release path. Native
+configuration is generated from app.json and tracked plugins. Native launcher
+and splash graphics use the shared black-and-orange SmartPantry pantry/leaf mark.
+Rebuild native resources to include updated branding; the web favicon is unchanged.
+Production signing, advisory review, backend verification and physical-phone QA
+remain explicit release gates. See [release readiness](docs/release-readiness.md).

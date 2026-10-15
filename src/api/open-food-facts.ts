@@ -98,7 +98,7 @@ export async function searchProducts(query: string, signal?: AbortSignal): Promi
   try {
     const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search)}&search_simple=1&action=process&json=1&page_size=20&page=1&fields=${fields}`;
     const response = await fetch(url, { headers: clientHeaders(), signal: controller.signal });
-    if (!response.ok) throw new Error(`Product search failed: ${response.status}`);
+    if (!response.ok) throw Object.assign(new Error(`Product search failed: ${response.status}`), { status: response.status });
     const products = mapOpenFoodFactsSearchResponse(await response.json(), search);
     if (searchCache.size >= 20) searchCache.delete(searchCache.keys().next().value!);
     searchCache.set(key, { products, time: Date.now() });
@@ -146,7 +146,7 @@ export async function lookupBarcode(value: string, signal?: AbortSignal): Promis
     // Browsers control User-Agent; native fetch supports identifying the client.
     const headers = clientHeaders();
     const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`, { headers, signal: controller.signal });
-    if (!response.ok && response.status !== 404) throw new Error(`Product lookup failed: ${response.status}`);
+    if (!response.ok && response.status !== 404) throw Object.assign(new Error(`Product lookup failed: ${response.status}`), { status: response.status });
     const product = parseOpenFoodFactsResponse(await response.json(), barcode);
     if (!response.ok && product) throw new Error('Invalid product response');
     if (cache.size >= 20) cache.delete(cache.keys().next().value!);

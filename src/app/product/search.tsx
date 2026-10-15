@@ -37,7 +37,7 @@ export default function ProductSearchScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
-  const { status, products, retry } = useProductSearch(valid ? query : '');
+  const { status, products, retry, errorKey } = useProductSearch(valid ? query : '');
   const back = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/scan');
   const manual = () => router.push({ pathname: '/product/add', params: { mode: 'custom', ...(valid ? { barcode } : {}) } });
   const select = (product: ProductSearchResult) => {
@@ -67,7 +67,7 @@ export default function ProductSearchScreen() {
         {status === 'loading' ? <ActivityIndicator size="large" color={colors.accent} /> : <>
           <Ionicons name={status === 'error' ? 'cloud-offline-outline' : 'search-outline'} size={36} color={status === 'error' ? colors.danger : colors.secondary} />
           <Text style={styles.stateTitle}>{t(!valid ? 'scan.invalid' : status === 'error' ? 'scan.searchError' : status === 'idle' ? 'scan.searchHint' : 'scan.searchEmpty')}</Text>
-          {status === 'error' && <><Text style={styles.secondary}>{t('scan.errorBody')}</Text><Pressable accessibilityRole="button" onPress={retry} style={styles.action}><Text style={styles.actionText}>{t('common.retry')}</Text></Pressable></>}
+          {status === 'error' && <><Text accessibilityRole="alert" style={styles.secondary}>{t(errorKey ?? 'polish.serviceError')}</Text><Pressable accessibilityRole="button" onPress={retry} style={styles.action}><Text style={styles.actionText}>{t('common.retry')}</Text></Pressable></>}
         </>}
       </View>}
       ListFooterComponent={<View style={styles.footer}>

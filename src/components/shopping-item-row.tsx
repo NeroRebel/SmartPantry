@@ -36,7 +36,7 @@ export function ShoppingItemRow({ item, disabled, onToggle, onEdit, onDelete }: 
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   row: { minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  completedRow: { opacity: 0.68 },
+  completedRow: { backgroundColor: colors.surfaceElevated },
   checkboxButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, minWidth: 0, paddingVertical: 7 },
   name: { color: colors.text, fontSize: 15, lineHeight: 21, fontWeight: '600' },

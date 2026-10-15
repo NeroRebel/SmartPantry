@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { avatarService } from '@/services/avatars';
 import { AVATAR_URL_SECONDS, customAvatarPath, resolveAvatarUrl } from '@/utils/avatar';
@@ -9,8 +9,11 @@ export function useUserAvatar(user: User | null): string | null {
   const version = typeof user?.user_metadata?.avatar_version === 'string' ? user.user_metadata.avatar_version : '';
   const key = user && path ? `${user.id}:${path}:${version}` : '';
   const [resolved, setResolved] = useState<{ key: string; url: string | null } | null>(null);
+  const latestUser = useRef(user);
+  useEffect(() => { latestUser.current = user; }, [user]);
   useEffect(() => {
-    if (!user || !path) return;
+    const account = latestUser.current;
+    if (!account || !path) return;
     let active = true;
     let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -20,7 +23,7 @@ export function useUserAvatar(user: User | null): string | null {
       clearTimeout(timer);
       let delay = (AVATAR_URL_SECONDS - 300) * 1000;
       try {
-        const url = await avatarService.signedUrl(user!);
+        const url = await avatarService.signedUrl(account!);
         if (active) setResolved({ key, url });
       } catch {
         if (active) setResolved({ key, url: null });
@@ -33,7 +36,7 @@ export function useUserAvatar(user: User | null): string | null {
     void refresh();
     const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
     return () => { active = false; clearTimeout(timer); subscription.remove(); };
-  }, [key, path, user]);
+  }, [key, path]);
   const customUrl = resolved?.key === key ? resolved.url : null;
   return resolveAvatarUrl(user, customUrl);
 }

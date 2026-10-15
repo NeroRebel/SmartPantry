@@ -29,7 +29,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, gap: 25 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 }, back: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  title: { color: colors.text, fontSize: 26, fontWeight: '700' }, brand: { alignItems: 'center', gap: 16, paddingTop: 30 },
+  title: { flex: 1, color: colors.text, fontSize: 26, fontWeight: '700' }, brand: { alignItems: 'center', gap: 16, paddingTop: 30 },
   brandIcon: { width: 76, height: 76, borderRadius: 18, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   brandName: { color: colors.text, fontSize: 30, fontWeight: '700' }, description: { color: colors.secondary, fontSize: 15, lineHeight: 23, textAlign: 'center', marginBottom: 20 },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, borderTopWidth: 1, borderColor: colors.border, paddingVertical: 17 },

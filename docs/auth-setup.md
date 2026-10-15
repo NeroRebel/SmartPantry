@@ -171,7 +171,7 @@ On web, Google redirects the current page to Supabase, then back to the same-ori
 
 The singleton client uses `persistSession`, automatic token refresh and PKCE. Expo Crypto supplies secure random values and SHA-256 for native PKCE; the browser retains its own WebCrypto. Native sessions use AsyncStorage; web sessions use Supabase's browser storage. Native token refresh runs while the app is active and stops in the background. `AuthProvider` restores the initial session, subscribes to auth changes and exposes auth actions. Protected routes are unavailable until restoration completes. A restore failure allows retry or another sign-in.
 
-Passwords are passed to Supabase and are never stored by app code. Auth failures are converted to localized messages. Development-only callback diagnostics log the configured callback path with query/hash values redacted, the email-detection flag/source, the inferred or returned provider, and whether a session was created. Signup and resend also log whether the exact mobile confirmation redirect is configured. They never log raw callback URLs, passwords, codes, flow IDs, tokens, user objects or errors. Sign-out removes the Supabase session; it does not clear SQLite, reminders, appearance or language.
+Passwords are passed to Supabase and are never stored by app code. Auth failures are converted to localized messages. Temporary environment, redirect and callback diagnostics have been removed. Intentional development-only password/avatar failure diagnostics retain only operation and validated SDK classifications/status, never raw messages, URLs, codes, tokens, user objects or requests. Sign-out removes the Supabase session; it does not clear SQLite, reminders, appearance or language.
 
 ## Manual Verification
 

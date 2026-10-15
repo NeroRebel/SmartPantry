@@ -2,27 +2,18 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { AVATAR_BUCKET, AVATAR_URL_SECONDS, avatarMimeType, avatarPath, customAvatarPath } from '@/utils/avatar';
 
-function logAvatarFailure(stage: string, error: unknown, path: string | null) {
+function logAvatarFailure(stage: string, error: unknown) {
   if (typeof __DEV__ === 'undefined' || !__DEV__) return;
   const fields = error && typeof error === 'object'
-    ? error as { message?: unknown; name?: unknown; statusCode?: unknown; status?: unknown }
+    ? error as { name?: unknown; statusCode?: unknown; status?: unknown }
     : {};
-  // Do not dump the error object: SDK/request errors may include credentials or URLs.
-  const safeText = (value: unknown) => typeof value === 'string'
-    ? value.replace(/https?:\/\/\S+/gi, '[redacted URL]')
-      .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
-      .replace(/(?:access_token|refresh_token|authorization|apikey|api_key|token|code)\s*[=:]\s*[^\s,;]+/gi, '[redacted credential]')
-      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[redacted token]')
-      .replace(/\bsb_(?:publishable|secret)_[A-Za-z0-9_-]+\b/g, '[redacted key]')
-      .slice(0, 500)
-    : undefined;
+  // Keep only SDK classifications, never arbitrary messages, paths or request objects.
+  const name = typeof fields.name === 'string' && /^[A-Za-z]{1,80}$/.test(fields.name) ? fields.name : undefined;
   const status = fields.statusCode ?? fields.status;
   console.warn(`[SmartPantry] Avatar ${stage} failed`, {
-    message: safeText(fields.message),
-    name: safeText(fields.name),
+    name,
     status: typeof status === 'number' || (typeof status === 'string' && /^\d{3}$/.test(status)) ? status : undefined,
     bucket: AVATAR_BUCKET,
-    path,
   });
 }
 
@@ -68,13 +59,13 @@ export function createAvatarService(client: SupabaseClient | null) {
               const { error: cleanupError } = await bucket.remove([path]);
               if (cleanupError) throw cleanupError;
             } catch (cleanupError) {
-              logAvatarFailure('upload cleanup', cleanupError, path);
+              logAvatarFailure('upload cleanup', cleanupError);
             }
           }
           throw error;
         }
       } catch (error) {
-        logAvatarFailure(stage, error, path);
+        logAvatarFailure(stage, error);
         throw error;
       }
     },

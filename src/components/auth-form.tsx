@@ -60,7 +60,7 @@ export function AuthForm({ mode, successMessage }: { mode: 'sign-in' | 'sign-up'
 
   return <SafeAreaView style={styles.screen}>
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
         <View style={styles.brand}><View style={styles.brandIcon}><Ionicons name="leaf-outline" size={30} color={colors.accent} /></View><Text style={styles.brandName}>SmartPantry</Text></View>
         <Text accessibilityRole="header" style={styles.title}>{t(signup ? 'auth.createAccount' : 'auth.signIn')}</Text>
         {successMessage && <Text accessibilityLiveRegion="polite" style={styles.notice}>{t(successMessage)}</Text>}
@@ -114,5 +114,5 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   google: { minHeight: 56, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, padding: 16, backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
   googleText: { color: colors.text, fontSize: 15, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   switchMode: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  link: { color: colors.accent, fontSize: 14, fontWeight: '600', paddingVertical: 6 },
+  link: { color: colors.accent, fontSize: 14, fontWeight: '600', minHeight: 44, paddingVertical: 12 },
 });

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,13 +17,15 @@ export default function AppearanceScreen() {
   const { settings, mode, updateAppearance } = useAppTheme();
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
 
   async function change(patch: Parameters<typeof updateAppearance>[0]) {
-    if (busy) return;
+    if (locked.current) return;
+    locked.current = true;
     setBusy(true);
     try { await updateAppearance(patch); }
     catch { Alert.alert(t('form.unableSave'), t('appearance.saveError')); }
-    finally { setBusy(false); }
+    finally { locked.current = false; setBusy(false); }
   }
 
   return <SafeAreaView style={styles.screen}>
@@ -70,7 +72,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.surface },
-  title: { color: colors.text, fontSize: 26, fontWeight: '700' },
+  title: { flex: 1, color: colors.text, fontSize: 26, fontWeight: '700' },
   section: { gap: 12 }, sectionTitle: { color: colors.secondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   group: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' },
   row: { minHeight: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border },

@@ -80,8 +80,8 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   quantity: { color: colors.secondary, fontSize: 13, lineHeight: 18 },
   footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   expiration: { fontSize: 12, lineHeight: 18 },
-  badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8 },
+  badge: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8 },
   dot: { width: 5, height: 5, borderRadius: 3 },
-  badgeText: { fontSize: 11, lineHeight: 15, fontWeight: '600' },
+  badgeText: { flexShrink: 1, fontSize: 11, lineHeight: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
 });

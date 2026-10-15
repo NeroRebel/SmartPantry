@@ -33,7 +33,6 @@ export async function syncEntity(entity: SyncEntity, owner: string, signal: Abor
     if (await local.acknowledge(entity, row.local, written)) counts.conflicts++;
     counts.pushed++; if (row.cloud.deleted_at) counts.tombstoned++;
   }
-  if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Sync entity', { entity, local_count: rows.length, remote_count: remote.length, ...counts });
   if (counts.conflicts) throw new SyncConflict();
   return counts;
 }

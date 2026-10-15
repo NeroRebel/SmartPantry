@@ -33,8 +33,8 @@ export default function HomeScreen() {
     { label: t('home.soon'), overviewLabel: t('common.soon'), count: stats.expiringSoon, color: colors.yellow, icon: 'time-outline' },
     { label: t('common.good'), overviewLabel: t('common.fresh'), count: stats.fresh, color: colors.green, icon: 'checkmark-circle-outline' },
   ] as const;
-  const heroCount = stats.total === 0 ? t('home.pantryEmpty') : stats.expiringSoon === 0 ? t('home.allGood') : `${stats.expiringSoon} ${t('common.item', { count: stats.expiringSoon })}`;
-  const heroTitle = stats.total === 0 ? t('home.addFirst') : stats.expiringSoon === 0 ? t('home.noExpiring') : t('home.expiringSoon');
+  const heroCount = !data ? t('home.overview') : stats.total === 0 ? t('home.pantryEmpty') : stats.expiringSoon === 0 ? t('home.allGood') : `${stats.expiringSoon} ${t('common.item', { count: stats.expiringSoon })}`;
+  const heroTitle = !data ? t(error ? 'polish.loadError' : 'common.loading') : stats.total === 0 ? t('home.addFirst') : stats.expiringSoon === 0 ? t('home.noExpiring') : t('home.expiringSoon');
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -76,7 +76,7 @@ export default function HomeScreen() {
 
         {error ? (
           <View style={styles.loadMessage}>
-            <Text accessibilityRole="alert" style={styles.loadMessageText}>{error}</Text>
+            <Text accessibilityRole="alert" style={styles.loadMessageText}>{t(error)}</Text>
             <Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}>
               <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
             </Pressable>
@@ -87,7 +87,7 @@ export default function HomeScreen() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${heroCount}. ${heroTitle}. View inventory`}
+          accessibilityLabel={`${heroCount}. ${heroTitle}. ${t('polish.viewInventory')}`}
           onPress={openInventory}
           style={({ pressed }) => [styles.hero, pressed && styles.pressed]}
         >
@@ -118,9 +118,9 @@ export default function HomeScreen() {
 
         <View style={styles.statusRow}>
           {pantryStatus.map((status) => (
-            <View key={status.label} accessible accessibilityLabel={`${status.count} ${status.label}`} style={styles.statusCard}>
+            <View key={status.label} accessible accessibilityLabel={data ? `${status.count} ${status.label}` : `${status.label}, ${t('common.loading')}`} style={styles.statusCard}>
               <Ionicons name={status.icon} size={20} color={status.color} />
-              <Text style={[styles.statusCount, { color: status.color }]}>{status.count}</Text>
+              <Text style={[styles.statusCount, { color: status.color }]}>{data ? status.count : '--'}</Text>
               <Text style={styles.statusLabel}>{status.label}</Text>
             </View>
           ))}
@@ -140,10 +140,10 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <View style={styles.totalRow}>
-            <Text style={styles.totalCount}>{stats.total}</Text>
-            <Text style={styles.totalLabel}>{t('home.totalItems', { count: stats.total })}</Text>
+            <Text style={styles.totalCount}>{data ? stats.total : '--'}</Text>
+            <Text style={styles.totalLabel}>{data ? t('home.totalItems', { count: stats.total }) : t('common.loading')}</Text>
           </View>
-          <View accessible accessibilityLabel={`Pantry breakdown: ${stats.expired} expired, ${stats.expiringSoon} expiring soon, ${stats.fresh} fresh`} style={styles.breakdownBar}>
+          <View accessible accessibilityLabel={data ? t('polish.breakdown', { expired: stats.expired, soon: stats.expiringSoon, fresh: stats.fresh }) : t('common.loading')} style={styles.breakdownBar}>
             {pantryStatus.filter((status) => status.count > 0).map((status) => (
               <View key={status.label} style={{ flex: status.count, backgroundColor: status.color }} />
             ))}
@@ -153,7 +153,7 @@ export default function HomeScreen() {
               <View key={status.label} style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: status.color }]} />
                 <Text style={styles.legendText}>
-                  <Text style={styles.legendCount}>{status.count}</Text> {status.overviewLabel}
+                  <Text style={styles.legendCount}>{data ? status.count : '--'}</Text> {status.overviewLabel}
                 </Text>
               </View>
             ))}

@@ -33,7 +33,7 @@ export default function ForgotPasswordScreen() {
   }
   const disabled = busy || seconds > 0 || !auth.configured;
   return <SafeAreaView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
       <Text style={styles.brand}>SmartPantry</Text><Text accessibilityRole="header" style={styles.title}>{t('password.forgotTitle')}</Text>
       <Text style={styles.label}>{t('password.emailHelp')}</Text>
       <TextInput accessibilityLabel={t('auth.email')} placeholder={t('auth.email')} placeholderTextColor={colors.secondary} value={email} onChangeText={(value) => { setEmail(value); setSent(false); }} editable={!busy} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" maxLength={254} selectionColor={colors.accent} style={styles.input} />

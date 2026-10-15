@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { SyncProvider, useSync } from '@/sync/sync-context';
 import { useTranslation } from 'react-i18next';
 import { AppearanceProvider, useAppTheme } from '@/theme/theme-context';
+import { FeedbackHost } from '@/components/feedback-host';
 
 function RootNavigator() {
   const { colors, mode } = useAppTheme();
@@ -26,6 +27,7 @@ function RootNavigator() {
           </Stack.Protected>
           <Stack.Screen name="auth/callback" />
         </Stack>}
+      <FeedbackHost />
     </ThemeProvider>
   );
 }

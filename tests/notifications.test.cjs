@@ -40,6 +40,7 @@ function setup(permission = true, existingDatabase) {
     async withTransactionAsync(callback) { return db.withExclusiveTransactionAsync(callback); },
   };
   const cache = new Map();
+  const i18n = require('i18next').createInstance();
   function load(filename) {
     filename = path.resolve(filename);
     if (cache.has(filename)) return cache.get(filename).exports;
@@ -52,13 +53,20 @@ function setup(permission = true, existingDatabase) {
       if (name === 'expo-sqlite') return { openDatabaseAsync: async () => db };
       if (name === 'expo-notifications') return notifications;
       if (name === 'react-native') return { Platform: { OS: 'android' } };
+      if (name === '@/i18n') {
+        if (!i18n.isInitialized) {
+          const locales = load(path.join(root, 'i18n/polish.ts')).polishTranslations;
+          i18n.init({ lng: 'en', fallbackLng: 'en', keySeparator: false, initAsync: false, resources: Object.fromEntries(Object.entries(locales).map(([key, translation]) => [key, { translation: { ...translation, 'more.expirationReminders': 'Expiration reminders' } }])) });
+        }
+        return { i18n };
+      }
       const target = name.startsWith('@/') ? path.join(root, name.slice(2)) : path.resolve(path.dirname(filename), name);
       return load(`${target}.ts`);
     };
     vm.runInThisContext(`(function(require, module, exports) {${source}\n})`, { filename })(localRequire, module, module.exports);
     return module.exports;
   }
-  return { connection, scheduled, canceled, notifications, load: (filename) => load(path.join(root, filename)), setPermission: (value) => { allowed = value; } };
+  return { connection, scheduled, canceled, notifications, i18n, load: (filename) => load(path.join(root, filename)), setPermission: (value) => { allowed = value; } };
 }
 
 function futureDate(days) {
@@ -70,6 +78,28 @@ function futureDate(days) {
 
 const input = { name: 'Milk', brand: null, barcode: null, category: 'Dairy', quantity: 1,
   unit: 'L', expirationDate: futureDate(7), storageLocation: 'Refrigerator', imageUrl: null, notes: null };
+
+test('expiration notifications use the selected language without changing product names or duplicating reminders', async () => {
+  const app = setup();
+  try {
+    app.load('db/local-state.ts').setLocalUserId('a');
+    const products = app.load('db/products.ts');
+    const reminders = app.load('services/notifications.ts');
+    const id = await products.createProduct(input);
+    const bodies = new Set();
+    for (const language of ['en', 'sk', 'ru', 'uk', 'hu']) {
+      await app.i18n.changeLanguage(language);
+      await reminders.syncProductReminder(id);
+      assert.equal(app.scheduled.size, 1);
+      const content = [...app.scheduled.values()][0].content;
+      assert.equal(content.title, app.i18n.t('notifications.title', { name: 'Milk' }));
+      assert.equal(content.body, app.i18n.t('notifications.tomorrow', { name: 'Milk', count: 1 }));
+      assert.ok(content.body.includes('Milk'));
+      bodies.add(content.body);
+    }
+    assert.equal(bodies.size, 5);
+  } finally { app.connection.close(); }
+});
 
 test('account deletion cancels only the deleted owner reminders including unmapped scheduled notifications', async () => {
   const app = setup();

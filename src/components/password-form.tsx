@@ -65,7 +65,7 @@ export function PasswordForm({ recovery = false }: { recovery?: boolean }) {
   if (!recovery && !auth.user) return <Redirect href="/(auth)/sign-in" />;
   const valid = recovery ? auth.recovering && !!auth.session : hasEmailIdentity(auth.user);
   return <SafeAreaView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
       <Text style={styles.brand}>SmartPantry</Text>
       <Text accessibilityRole="header" style={styles.title}>{t(recovery ? 'password.resetTitle' : 'password.change')}</Text>
       {recovery && auth.passwordRecoveryComplete ? <>

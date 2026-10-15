@@ -12,6 +12,7 @@ import { getProducts } from '@/db/products';
 import { useThemedStyles } from '@/theme/theme-context';
 import type { AppColors } from '@/theme/theme';
 import { findBarcodeProduct, isValidBarcode } from '@/utils/scanned-product';
+import { remoteErrorKey } from '@/utils/load-error';
 
 type LookupState = 'ready' | 'loading' | 'notFound' | 'error' | 'invalid';
 
@@ -36,6 +37,7 @@ export default function ScanScreen() {
   const [manual, setManual] = useState(Platform.OS === 'web');
   const [barcode, setBarcode] = useState('');
   const [state, setState] = useState<LookupState>('ready');
+  const [lookupError, setLookupError] = useState('polish.serviceError');
   const [torch, setTorch] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
   const [permissionFailed, setPermissionFailed] = useState(false);
@@ -106,8 +108,8 @@ export default function ScanScreen() {
       if (!active.current || !inForeground.current || controller.signal.aborted) return;
       if (product || findBarcodeProduct(products, code)) router.push({ pathname: '/product/scanned', params: { barcode: code } });
       else setState('notFound');
-    } catch {
-      if (active.current && inForeground.current && !controller.signal.aborted) setState('error');
+    } catch (error) {
+      if (active.current && inForeground.current && !controller.signal.aborted) { setLookupError(remoteErrorKey(error)); setState('error'); }
     }
   }
   const custom = (code?: string) => {
@@ -125,13 +127,13 @@ export default function ScanScreen() {
   const cameraVisible = focused && foreground && permission?.granted && !manual && !cameraFailed && state === 'ready' && Platform.OS !== 'web';
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, { paddingBottom: tabBarHeight }]}>
-    <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
       <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>{t('scan.title')}</Text><Ionicons name="barcode-outline" size={28} color={colors.accent} /></View>
       {state === 'loading' ? <View style={styles.state}><ActivityIndicator size="large" color={colors.accent} /><Text style={styles.stateTitle}>{t('scan.lookingUp')}</Text><Text style={styles.secondary}>{barcode}</Text></View>
         : state !== 'ready' ? <View style={styles.state}>
           <Ionicons name={state === 'notFound' ? 'search-outline' : 'alert-circle-outline'} size={48} color={state === 'notFound' ? colors.secondary : colors.danger} />
           <Text style={styles.stateTitle}>{t(state === 'notFound' ? 'scan.notFound' : state === 'invalid' ? 'scan.invalid' : 'scan.lookupError')}</Text>
-          <Text style={styles.secondary}>{t(state === 'notFound' ? 'scan.notFoundBody' : state === 'invalid' ? 'scan.invalidBody' : 'scan.errorBody')}</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.secondary}>{t(state === 'notFound' ? 'scan.notFoundBody' : state === 'invalid' ? 'scan.invalidBody' : lookupError)}</Text>
           {state === 'error' && <ScanAction label={t('common.retry')} onPress={() => { locked.current = false; void lookup(barcode); }} primary icon="refresh" />}
           {(state === 'notFound' || state === 'error') && <ScanAction label={t('scan.searchByName')} onPress={() => router.push({ pathname: '/product/search', params: { barcode } })} primary={state === 'notFound'} icon="search-outline" />}
           <ScanAction label={t('scan.createManually')} onPress={() => custom(barcode)} icon="create-outline" />

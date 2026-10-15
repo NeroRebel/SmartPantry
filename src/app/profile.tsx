@@ -23,32 +23,35 @@ export default function ProfileScreen() {
   const [draft, setDraft] = useState('');
   const [confirmation, setConfirmation] = useState<'logout' | 'remove-photo' | null>(null);
   const photoLocked = useRef(false);
+  const actionLocked = useRef(false);
   if (!user) return null;
   const profile = getUserProfile(user);
   const name = profile.name || t('auth.user');
   const created = formatAccountDate(user.created_at, i18n.language);
 
   async function saveName() {
-    if (busy) return;
+    if (actionLocked.current || photoLocked.current) return;
     const validation = validateDisplayName(draft);
     setNotice(null);
     if (validation) { setError(validation); return; }
+    actionLocked.current = true;
     setBusy('save'); setError(null);
     try { await updateDisplayName(draft); setEditing(false); setNotice('profile.saved'); }
     catch (cause) { setError(authErrorKey(cause)); }
-    finally { setBusy(null); }
+    finally { actionLocked.current = false; setBusy(null); }
   }
 
   async function logout() {
-    if (busy) return;
+    if (actionLocked.current || photoLocked.current) return;
+    actionLocked.current = true;
     setConfirmation(null); setBusy('logout'); setError(null); setNotice(null);
     try { await signOut(); }
     catch (cause) { setError(authErrorKey(cause)); }
-    finally { setBusy(null); }
+    finally { actionLocked.current = false; setBusy(null); }
   }
 
   async function changePhoto() {
-    if (busy || photoLocked.current) return;
+    if (busy || photoLocked.current || actionLocked.current) return;
     photoLocked.current = true; setBusy('pick-photo'); setError(null); setNotice(null);
     let choosing = true;
     try {
@@ -61,7 +64,7 @@ export default function ProfileScreen() {
   }
 
   async function removePhoto() {
-    if (busy || photoLocked.current) return;
+    if (busy || photoLocked.current || actionLocked.current) return;
     photoLocked.current = true; setConfirmation(null); setBusy('remove-photo'); setError(null); setNotice(null);
     try { await removeAvatar(); setNotice('avatar.removed'); }
     catch (cause) { setError(avatarErrorKey(cause, 'avatar.removeFailed')); }
@@ -69,7 +72,7 @@ export default function ProfileScreen() {
   }
 
   return <SafeAreaView style={styles.screen}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} disabled={!!busy} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/more')} style={styles.back}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />

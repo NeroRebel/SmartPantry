@@ -13,10 +13,6 @@ export const authRedirectUri = makeRedirectUri({ scheme: 'smartpantry', path: 'a
 
 function failure(code: string): never { throw Object.assign(new Error('Authentication failed'), { code }); }
 
-function logEmailRedirect(redirect: string) {
-  if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Email confirmation redirect configured:', redirect === emailConfirmationRedirectUri);
-}
-
 function logPasswordError(operation: string, error: unknown) {
   if (typeof __DEV__ === 'undefined' || !__DEV__) return;
   const value = error && typeof error === 'object' ? error as { code?: unknown; name?: unknown; status?: unknown } : {};
@@ -38,19 +34,6 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
     if (previous) return previous;
     const promise = (async () => {
       const info = inspectAuthCallback(url, redirectTo, pendingEmailConfirmation && googleRequests === 0);
-      let sessionCreated = false;
-      let source = info.emailConfirmationDetected ? 'email' : googleRequests > 0 ? 'google' : 'unknown';
-      const diagnostics = (phase: 'received' | 'completed') => {
-        if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[SmartPantry] Auth callback', {
-          phase, incoming_callback_url: info.safeUrl,
-          email_confirmation_detected: info.emailConfirmationDetected,
-          email_confirmation_detection_source: info.detectionSource,
-          provider_source: source,
-          session_created: sessionCreated,
-          password_recovery_detected: info.recoveryDetected || recoveryCallbacks.has(url),
-        });
-      };
-      diagnostics('received');
       async function refreshEmailChangeSession(): Promise<Session | null> {
         if (!info.emailChangeDetected) return null;
         const auth = requireClient().auth;
@@ -60,41 +43,36 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
         // A sessionless confirmation can still update a previously signed-in account.
         const { data, error } = await auth.refreshSession();
         if (error) throw error;
-        sessionCreated = !!data.session;
         return data.session;
       }
-      try {
-        const callback = info.callback;
-        if (info.linkExpired) failure('otp_expired');
-        if (!callback || callback.type === 'error') failure(info.recoveryDetected ? 'recovery_link_invalid' : 'oauth_callback_invalid');
-        if (callback.type === 'empty') {
-          if (info.recoveryDetected) failure('recovery_link_invalid');
-          if (info.emailChangeDetected) return await refreshEmailChangeSession();
-          if (info.emailConfirmationDetected) return null;
-          failure('oauth_callback_invalid');
-        }
-        const auth = requireClient().auth;
-        const { data, error } = callback.type === 'code'
-          ? await auth.exchangeCodeForSession(callback.code, callback.flowId ? { flowId: callback.flowId } : undefined)
-          : await auth.setSession({ access_token: callback.accessToken, refresh_token: callback.refreshToken });
-        if (error) {
-          // A confirmed email can return a code that this installation cannot exchange.
-          const code = error.code;
-          if (!info.recoveryDetected && (info.emailConfirmationDetected || info.emailChangeDetected) && callback.type === 'code' &&
-            (error.name === 'AuthPKCECodeVerifierMissingError' || ['flow_state_not_found', 'flow_state_expired', 'bad_code_verifier'].includes(code ?? ''))) return await refreshEmailChangeSession();
-          throw error;
-        }
-        if (!data.session) {
-          if (info.recoveryDetected) failure('recovery_link_invalid');
-          if (info.emailChangeDetected) return await refreshEmailChangeSession();
-          if (info.emailConfirmationDetected) return null;
-          failure('oauth_callback_error');
-        }
-        if (info.recoveryDetected || ('redirectType' in data && data.redirectType === 'recovery')) recoveryCallbacks.add(url);
-        sessionCreated = true;
-        source = data.session.user.app_metadata?.provider === 'google' ? 'google' : data.session.user.app_metadata?.provider === 'email' ? 'email' : source;
-        return data.session;
-      } finally { diagnostics('completed'); }
+      const callback = info.callback;
+      if (info.linkExpired) failure('otp_expired');
+      if (!callback || callback.type === 'error') failure(info.recoveryDetected ? 'recovery_link_invalid' : 'oauth_callback_invalid');
+      if (callback.type === 'empty') {
+        if (info.recoveryDetected) failure('recovery_link_invalid');
+        if (info.emailChangeDetected) return await refreshEmailChangeSession();
+        if (info.emailConfirmationDetected) return null;
+        failure('oauth_callback_invalid');
+      }
+      const auth = requireClient().auth;
+      const { data, error } = callback.type === 'code'
+        ? await auth.exchangeCodeForSession(callback.code, callback.flowId ? { flowId: callback.flowId } : undefined)
+        : await auth.setSession({ access_token: callback.accessToken, refresh_token: callback.refreshToken });
+      if (error) {
+        // A confirmed email can return a code that this installation cannot exchange.
+        const code = error.code;
+        if (!info.recoveryDetected && (info.emailConfirmationDetected || info.emailChangeDetected) && callback.type === 'code' &&
+          (error.name === 'AuthPKCECodeVerifierMissingError' || ['flow_state_not_found', 'flow_state_expired', 'bad_code_verifier'].includes(code ?? ''))) return await refreshEmailChangeSession();
+        throw error;
+      }
+      if (!data.session) {
+        if (info.recoveryDetected) failure('recovery_link_invalid');
+        if (info.emailChangeDetected) return await refreshEmailChangeSession();
+        if (info.emailConfirmationDetected) return null;
+        failure('oauth_callback_error');
+      }
+      if (info.recoveryDetected || ('redirectType' in data && data.redirectType === 'recovery')) recoveryCallbacks.add(url);
+      return data.session;
     })();
     if (callbacks.size >= 10) {
       const oldest = callbacks.keys().next().value!;
@@ -121,7 +99,6 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       };
       // Browser registration keeps its explicit browser callback, never the Site URL fallback.
       if (web) options.emailRedirectTo = redirectTo;
-      logEmailRedirect(options.emailRedirectTo);
       const { data, error } = await requireClient().auth.signUp({ email: email.trim(), password, options });
       if (error) throw error;
       return { session: data.session, confirmationRequired: !data.session };
@@ -158,7 +135,6 @@ export function createAuthService(client: SupabaseClient | null, redirectTo: str
       if (!isValidVerificationEmail(email)) failure('email_address_invalid');
       const options = { emailRedirectTo: 'smartpantry://auth/callback' };
       if (web) options.emailRedirectTo = redirectTo;
-      logEmailRedirect(options.emailRedirectTo);
       const { error } = await requireClient().auth.resend({ type: 'signup', email: email.trim(), options });
       if (error) throw error;
     },

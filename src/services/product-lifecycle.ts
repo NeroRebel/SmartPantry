@@ -6,7 +6,7 @@ import { assertLocalAccount, getLocalUserId } from '@/db/local-state';
 
 async function syncSafely(id: string) {
   try { await syncProductReminder(id); }
-  catch (error) { if (__DEV__) console.warn('[SmartPantry] Reminder sync failed:', error); }
+  catch { if (__DEV__) console.warn('[SmartPantry] Reminder sync failed'); }
 }
 
 export async function addProduct(input: ProductInput): Promise<string> {

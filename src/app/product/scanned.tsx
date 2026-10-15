@@ -29,7 +29,7 @@ export default function ScannedProductScreen() {
     const [product, products] = await Promise.all([selection ? Promise.resolve(getProductSelection(selection, barcode)) : lookupBarcode(barcode), getProducts()]);
     return { product, existing: findBarcodeProduct(products, barcode) };
   }, [barcode, selection]);
-  const { data, loading, error, reload } = useFocusedData(load);
+  const { data, loading, error, reload } = useFocusedData(load, { remote: true });
   const back = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/scan');
   const manual = () => router.replace({ pathname: '/product/add', params: { mode: 'custom', ...(isValidBarcode(barcode) ? { barcode } : {}) } });
   const search = () => router.push({ pathname: '/product/search', params: { barcode } });
@@ -40,7 +40,7 @@ export default function ScannedProductScreen() {
   if ((loading && !data) || error || !product || (existing && acceptedDuplicate !== existing.id)) {
     return <SafeAreaView style={styles.screen}><View style={styles.state}>
       {loading && !data ? <ActivityIndicator size="large" color={colors.accent} /> : error ? <>
-        <Text style={styles.title}>{t('scan.lookupError')}</Text><Text style={styles.secondary}>{t('scan.errorBody')}</Text>
+        <Text style={styles.title}>{t('scan.lookupError')}</Text><Text accessibilityRole="alert" style={styles.secondary}>{t(error)}</Text>
         {button(t('common.retry'), reload)}{isValidBarcode(barcode) && button(t('scan.searchByName'), search)}{button(t('scan.addManually'), manual)}
       </> : existing && acceptedDuplicate !== existing.id ? <>
         <Ionicons name="basket-outline" size={48} color={colors.warning} />
@@ -82,7 +82,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   button: { minHeight: 52, width: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
   buttonText: { color: colors.accent, fontWeight: '600', textAlign: 'center' },
   preview: { alignItems: 'center', gap: 12, padding: 18, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
-  image: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#FFFFFF' },
+  image: { width: '100%', height: 180, borderRadius: 12, backgroundColor: colors.imageBackground },
   placeholder: { height: 100, justifyContent: 'center' },
   grade: { color: colors.text, fontSize: 16, fontWeight: '600' },
   matched: { color: colors.warning, fontSize: 14, fontWeight: '600', textAlign: 'center' },

@@ -2,8 +2,9 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { searchProducts } from '@/api/open-food-facts';
 import type { ProductSearchResult } from '@/types/scanned-product';
+import { remoteErrorKey } from '@/utils/load-error';
 
-type SearchState = { status: 'idle' | 'loading' | 'success' | 'error'; products: ProductSearchResult[] };
+type SearchState = { status: 'idle' | 'loading' | 'success' | 'error'; products: ProductSearchResult[]; errorKey?: string };
 
 export function useProductSearch(query: string) {
   const search = query.trim();
@@ -21,8 +22,8 @@ export function useProductSearch(query: string) {
     const timer = setTimeout(() => {
       void searchProducts(requestedQuery, controller.signal).then((products) => {
         if (active) setState({ status: 'success', products });
-      }).catch(() => {
-        if (active && !controller.signal.aborted) setState({ status: 'error', products: [] });
+      }).catch((error) => {
+        if (active && !controller.signal.aborted) setState({ status: 'error', products: [], errorKey: remoteErrorKey(error) });
       });
     }, 400);
     return () => { active = false; clearTimeout(timer); controller.abort(); };

@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,8 @@ import { clearCompletedShoppingItems, createShoppingItem, deleteShoppingItem, ge
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { NewShoppingItem, ShoppingItem } from '@/types/shopping-item';
 import { assertLocalAccount, getLocalUserId } from '@/db/local-state';
+import { showFeedback } from '@/services/feedback';
+import { confirmAction } from '@/utils/confirm-action';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -29,6 +31,7 @@ export default function ShoppingListScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const working = useRef(false);
 
   const toBuyCount = items.filter((item) => !item.completed).length;
   const purchasedCount = items.length - toBuyCount;
@@ -49,13 +52,15 @@ export default function ShoppingListScreen() {
     assertLocalAccount(owner);
     if (editing) await updateShoppingItem(editing.id, input);
     else await createShoppingItem(input);
-    setItems(await getShoppingItems());
     setFormOpen(false);
     setEditing(null);
+    reload();
+    showFeedback('polish.itemSaved', { owner });
   }
 
   async function toggle(item: ShoppingItem) {
-    if (workingId !== null || owner !== getLocalUserId()) return;
+    if (working.current || owner !== getLocalUserId()) return;
+    working.current = true;
     setWorkingId(item.id);
     setItems((current) => (current ?? []).map((entry) => entry.id === item.id ? { ...entry, completed: !entry.completed } : entry));
     try {
@@ -63,38 +68,41 @@ export default function ShoppingListScreen() {
       reload();
     } catch {
       setItems((current) => (current ?? []).map((entry) => entry.id === item.id ? item : entry));
-      Alert.alert(t('shopping.unableUpdate'), t('common.pleaseTryAgain'));
+      showFeedback('shopping.unableUpdate', { tone: 'error', owner });
     } finally {
+      working.current = false;
       setWorkingId(null);
     }
   }
 
   function remove(item: ShoppingItem) {
-    Alert.alert(t('shopping.deleteItem'), t('shopping.deleteConfirm', { name: item.name }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => {
-        if (workingId !== null || owner !== getLocalUserId()) return;
+    confirmAction({ title: t('shopping.deleteItem'), message: t('shopping.deleteConfirm', { name: item.name }),
+      cancel: t('common.cancel'), confirm: t('common.delete'), destructive: true, onConfirm: () => {
+        if (working.current || owner !== getLocalUserId()) return;
+        working.current = true;
         setWorkingId(item.id);
         void deleteShoppingItem(item.id).then(() => {
           setItems((current) => (current ?? []).filter((entry) => entry.id !== item.id));
           reload();
-        }).catch(() => Alert.alert(t('shopping.unableDelete'), t('common.pleaseTryAgain'))).finally(() => setWorkingId(null));
-      } },
-    ]);
+          showFeedback('polish.itemDeleted', { owner });
+        }).catch(() => showFeedback('shopping.unableDelete', { tone: 'error', owner })).finally(() => { working.current = false; setWorkingId(null); });
+      },
+    });
   }
 
   function clearPurchased() {
-    Alert.alert(t('shopping.clearItems'), t('shopping.clearConfirm', { count: purchasedCount }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('shopping.clearPurchased'), style: 'destructive', onPress: () => {
-        if (workingId !== null || owner !== getLocalUserId()) return;
+    confirmAction({ title: t('shopping.clearItems'), message: t('shopping.clearConfirm', { count: purchasedCount }),
+      cancel: t('common.cancel'), confirm: t('shopping.clearPurchased'), destructive: true, onConfirm: () => {
+        if (working.current || owner !== getLocalUserId()) return;
+        working.current = true;
         setWorkingId('__clear_purchased__');
         void clearCompletedShoppingItems().then(() => {
           setItems((current) => (current ?? []).filter((item) => !item.completed));
           reload();
-        }).catch(() => Alert.alert(t('shopping.unableClear'), t('common.pleaseTryAgain'))).finally(() => setWorkingId(null));
-      } },
-    ]);
+          showFeedback('polish.purchasedCleared', { owner });
+        }).catch(() => showFeedback('shopping.unableClear', { tone: 'error', owner })).finally(() => { working.current = false; setWorkingId(null); });
+      },
+    });
   }
 
   return (

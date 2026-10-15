@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,13 +14,15 @@ export default function LanguageScreen() {
   const { settings, updateAppearance } = useAppTheme();
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
 
   async function select(code: typeof languages[number]['code']) {
-    if (busy || code === settings.language) return;
+    if (locked.current || code === settings.language) return;
+    locked.current = true;
     setBusy(true);
     try { await updateAppearance({ language: code }); }
     catch { Alert.alert(t('form.unableSave'), t('appearance.saveError')); }
-    finally { setBusy(false); }
+    finally { locked.current = false; setBusy(false); }
   }
 
   return <SafeAreaView style={styles.screen}>
@@ -44,7 +46,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 44, gap: 28 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.surface },
-  title: { color: colors.text, fontSize: 26, fontWeight: '700' },
+  title: { flex: 1, color: colors.text, fontSize: 26, fontWeight: '700' },
   group: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' },
   row: { minHeight: 59, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
   name: { color: colors.text, fontSize: 16, fontWeight: '500' },

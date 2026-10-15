@@ -80,7 +80,7 @@ async function requestJson(endpoint: string, key: string, value: string): Promis
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
     const response = await fetch(`${BASE_URL}/${endpoint}?${key}=${encodeURIComponent(value)}`, { signal: controller.signal });
-    if (!response.ok) throw new Error(`Recipe service returned ${response.status}.`);
+    if (!response.ok) throw Object.assign(new Error(`Recipe service returned ${response.status}.`), { status: response.status });
     return await response.json();
   } finally {
     clearTimeout(timeout);

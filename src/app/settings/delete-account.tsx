@@ -40,7 +40,7 @@ export default function DeleteAccountScreen() {
     catch (cause) { setError(auth.authErrorKey(cause)); }
     finally { locked.current = false; setBusy(false); }
   }
-  return <SafeAreaView style={styles.screen}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+  return <SafeAreaView style={styles.screen}><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
     <Text accessibilityRole="header" style={styles.title}>{t('account.deleteTitle')}</Text>
     <Text style={styles.danger}>{t('account.irreversible')}</Text>
     <Text style={styles.body}>{t('account.deleteExplanation')}</Text>

@@ -24,12 +24,3 @@ function createSupabaseClient(): SupabaseClient | null {
 }
 
 export const supabase = createSupabaseClient();
-
-// Temporary development diagnostics: never include credentials, errors, or session data.
-if (typeof __DEV__ !== 'undefined' && __DEV__) {
-  console.info('[SmartPantry] Supabase configuration', {
-    SUPABASE_URL_exists: Boolean(supabaseUrl),
-    SUPABASE_PUBLISHABLE_KEY_exists: Boolean(supabasePublishableKey),
-    SUPABASE_client_initialized: Boolean(supabase),
-  });
-}

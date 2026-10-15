@@ -116,7 +116,7 @@ test('invalid/oversized images and upload failure do not modify profile metadata
   assert.equal(state.calls.filter((call) => call[0] === 'metadata').length, 0);
 });
 
-test('development diagnostics expose Storage errors but never dump nested credentials', async () => {
+test('development diagnostics keep Storage classifications but never messages, paths or nested credentials', async () => {
   const previousDev = global.__DEV__; const previousWarn = console.warn;
   const logs = [];
   global.__DEV__ = true; console.warn = (...args) => logs.push(args);
@@ -128,9 +128,11 @@ test('development diagnostics expose Storage errors but never dump nested creden
     bucket.upload = async () => ({ error: failure });
     await assert.rejects(service.upload(state.user, jpeg()), (error) => error === failure);
     assert.deepEqual(logs, [['[SmartPantry] Avatar storage upload failed', {
-      message: failure.message, name: 'StorageApiError', status: '403', bucket: 'avatars', path: 'user-a/avatar',
+      name: 'StorageApiError', status: '403', bucket: 'avatars',
     }]]);
     assert.equal(JSON.stringify(logs).includes('SECRET'), false);
+    assert.equal(JSON.stringify(logs).includes('user-a'), false);
+    assert.equal(JSON.stringify(logs).includes(failure.message), false);
     logs.length = 0;
     bucket.upload = async () => { throw Object.assign(new Error('Request failed https://example.com?token=SECRET Bearer SECRET access_token=SECRET sb_publishable_SECRET'), { status: 500 }); };
     await assert.rejects(service.upload(state.user, jpeg()));
@@ -149,7 +151,8 @@ test('metadata failures are distinguished from Storage failures in development',
     const { state, service } = fixture(); state.updateError = true;
     await assert.rejects(service.upload(state.user, jpeg()));
     assert.equal(logs[0][0], '[SmartPantry] Avatar metadata update failed');
-    assert.equal(logs[0][1].message, 'Metadata failed');
+    assert.equal(logs[0][1].bucket, 'avatars');
+    assert.equal(Object.hasOwn(logs[0][1], 'message'), false);
   } finally { console.warn = previousWarn; if (previousDev === undefined) delete global.__DEV__; else global.__DEV__ = previousDev; }
 });
 

@@ -40,7 +40,7 @@ function PresetCard({ preset, onPress }: { preset: ProductPreset; onPress: () =>
   const { styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Add ${preset.name}`} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('polish.addPreset', { name: preset.name })} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <Text style={styles.emoji}>{preset.emoji ?? '🥫'}</Text>
       <Text numberOfLines={2} style={styles.cardName}>{preset.name}</Text>
       <Text numberOfLines={1} style={styles.cardCategory}>{categoryLabel(preset.category, t)}</Text>

@@ -427,7 +427,7 @@ test('email confirmation without a mobile session returns a sign-in outcome, not
   assert.equal(helpers.inspectAuthCallback('https://untrusted.example?type=signup', redirect, true).emailConfirmationDetected, false);
 });
 
-test('callback diagnostics redact all query/hash values and never log sessions or errors', async (context) => {
+test('completed and failed callbacks emit no temporary diagnostics, sessions or errors', async (context) => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
   const logs = [];
   context.mock.method(console, 'info', (...args) => logs.push(args));
@@ -435,12 +435,10 @@ test('callback diagnostics redact all query/hash values and never log sessions o
   try {
     const auth = serviceFactory({ auth: { setSession: async () => ({ data: { session }, error: null }) } }, redirect);
     await auth.completeCallback(`${redirect}?email=PRIVATE_EMAIL#type=signup&access_token=SECRET_ACCESS&refresh_token=SECRET_REFRESH`);
-    assert.equal(logs[0][1].incoming_callback_url, `${redirect}?[redacted]#[redacted]`);
-    assert.equal(logs[1][1].email_confirmation_detected, true);
-    assert.equal(logs[1][1].session_created, true);
+    assert.deepEqual(logs, []);
     const failed = serviceFactory({ auth: { exchangeCodeForSession: async () => { throw new Error('SECRET_ERROR'); } } }, redirect);
     await assert.rejects(failed.completeCallback(`${redirect}?code=SECRET_CODE`));
-    assert.equal(logs.at(-1)[1].session_created, false);
+    assert.deepEqual(logs, []);
     for (const secret of ['SECRET_ACCESS', 'SECRET_REFRESH', 'SECRET_CODE', 'SECRET_ERROR', 'PRIVATE_EMAIL', 'user-id']) assert.equal(JSON.stringify(logs).includes(secret), false);
     assert.equal(helpers.inspectAuthCallback('invalid SECRET_TOKEN', redirect).safeUrl, '[invalid callback]');
   } finally {
@@ -481,7 +479,7 @@ test('pending registration cannot convert an active Google OAuth failure into em
   assert.equal((await auth.signInWithGoogle()).status, 'cancelled');
 });
 
-test('email redirect diagnostics print only configuration booleans', async (context) => {
+test('signup and resend no longer emit temporary redirect diagnostics', async (context) => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
   const logs = [];
   context.mock.method(console, 'info', (...args) => logs.push(args));
@@ -492,10 +490,7 @@ test('email redirect diagnostics print only configuration booleans', async (cont
     } }, redirect);
     await auth.signUp('Private Name', 'private@example.com', 'PRIVATE_PASSWORD');
     await auth.resendConfirmationEmail('private@example.com');
-    assert.deepEqual(logs, [
-      ['[SmartPantry] Email confirmation redirect configured:', true],
-      ['[SmartPantry] Email confirmation redirect configured:', true],
-    ]);
+    assert.deepEqual(logs, []);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor); else delete globalThis.__DEV__;
   }
@@ -631,7 +626,7 @@ test('native PKCE bridge uses Expo random values and SHA-256 without insecure fa
   }
 });
 
-test('development configuration diagnostics contain only three booleans and never credentials', (context) => {
+test('client configuration emits no temporary diagnostics in development or production', (context) => {
   const previousUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const previousKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const devDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
@@ -648,20 +643,16 @@ test('development configuration diagnostics contain only three booleans and neve
     delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     assert.equal(modules(overrides)('lib/supabase.ts').supabase, null);
-    assert.deepEqual(logs[0], ['[SmartPantry] Supabase configuration', {
-      SUPABASE_URL_exists: false, SUPABASE_PUBLISHABLE_KEY_exists: false, SUPABASE_client_initialized: false,
-    }]);
+    assert.deepEqual(logs, []);
     process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://private-project.supabase.co';
     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_value_never_logged';
-    modules(overrides)('lib/supabase.ts');
-    assert.deepEqual(logs[1][1], {
-      SUPABASE_URL_exists: true, SUPABASE_PUBLISHABLE_KEY_exists: true, SUPABASE_client_initialized: true,
-    });
+    assert.ok(modules(overrides)('lib/supabase.ts').supabase);
+    assert.deepEqual(logs, []);
     assert.equal(JSON.stringify(logs).includes('private-project'), false);
     assert.equal(JSON.stringify(logs).includes('test_value_never_logged'), false);
     Object.defineProperty(globalThis, '__DEV__', { value: false, configurable: true });
     modules(overrides)('lib/supabase.ts');
-    assert.equal(logs.length, 2);
+    assert.equal(logs.length, 0);
   } finally {
     if (previousUrl === undefined) delete process.env.EXPO_PUBLIC_SUPABASE_URL; else process.env.EXPO_PUBLIC_SUPABASE_URL = previousUrl;
     if (previousKey === undefined) delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; else process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = previousKey;

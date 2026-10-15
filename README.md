@@ -1,56 +1,60 @@
-# Welcome to your Expo app 👋
+# SmartPantry
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An Expo SDK 57 / React Native / TypeScript university project for tracking food,
+reducing waste and finding recipes. SQLite is the offline-first runtime store;
+Supabase provides authentication, private avatars and per-account cloud sync.
 
-## Get started
+## Development
 
-1. Install dependencies
+Use Node.js 22.13+ (Node 24 recommended for the node:sqlite test harness), npm,
+Java 17 and Android SDK 36 with NDK 27.1.12297006 for local Android builds.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+npm ci
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Create an ignored `.env` using the variable names in `.env.example`. Only the
+Supabase HTTPS URL and publishable key belong in the mobile environment. Set up
+the backend using [auth setup](docs/auth-setup.md) and [cloud sync](docs/cloud-sync.md).
+Never put server/admin secrets in Expo config.
 
-### Other setup steps
+```sh
+npm start -- --dev-client
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Routes are in `src/app`. Use an installed development build, not Expo Go, for
+the complete camera, notifications, SQLite and custom-scheme auth experience.
+Rebuild the development client with `npm run android` after native-module patch
+updates; keep its signing identity consistent and do not uninstall to fix a mismatch.
+Do not run the starter `reset-project` script on this implemented application.
 
-## Learn more
+## Verification
 
-To learn more about developing your project with Expo, look at the following resources:
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run check:dependencies
+npm run check:security
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Android Release
 
-## Join the community
+The primary path is **local Gradle**, not EAS. From the project root:
 
-Join our community of developers creating universal apps.
+```sh
+npm run android:prepare
+npm run android:release
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Native folders are generated/ignored. Tracked app config and config plugins are
+the source of truth. Without an upload keystore, release artifacts are unsigned
+verification artifacts, not installable/publishable production packages.
+
+Read [release readiness](docs/release-readiness.md) for signing environment names,
+artifact paths, branding/security blockers, backend requirements and smoke tests.
+Read [data handling](docs/data-handling.md) for a factual storage/API overview.
+Read [polish QA](docs/polish-qa.md) for UI checks and remaining device testing.
+
+Version: **1.0.0**, Android versionCode **1**, package
+`com.nerorebel.smartpantry`, scheme `smartpantry`.

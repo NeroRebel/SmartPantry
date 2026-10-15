@@ -93,7 +93,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { color: colors.secondary, fontSize: 12, lineHeight: 17 },
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 9, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
-  matchCopy: { gap: 3 },
+  matchCopy: { flex: 1, minWidth: 0, gap: 3 },
   matchCount: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
   matchDetail: { color: colors.secondary, fontSize: 11, lineHeight: 16 },
 });

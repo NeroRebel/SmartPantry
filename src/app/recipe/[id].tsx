@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,8 @@ import { getProducts } from '@/db/products';
 import { useFocusedData } from '@/hooks/use-focused-data';
 import type { Recipe, RecipeIngredient, RecipeMatch } from '@/types/recipe';
 import { calculateRecipeMatch } from '@/utils/ingredient-matching';
+import { showFeedback } from '@/services/feedback';
+import { getLocalUserId } from '@/db/local-state';
 
 function goBack() {
   if (router.canGoBack()) router.back();
@@ -24,7 +26,7 @@ function IngredientRow({ ingredient, available }: { ingredient: RecipeIngredient
   const { colors, styles } = useThemedStyles(createStyles);
   const { t } = useTranslation();
   return (
-    <View style={styles.ingredientRow}>
+    <View accessible accessibilityLabel={`${ingredient.name}, ${ingredient.measure ?? t('recipe.toTaste')}${available === null ? '' : `, ${t(available ? 'polish.available' : 'polish.missing')}`}`} style={styles.ingredientRow}>
       <Ionicons name={available ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={available === null ? colors.secondary : available ? colors.fresh : colors.soon} />
       <Text style={styles.ingredientName}>{ingredient.name}</Text>
       <Text style={styles.measure}>{ingredient.measure ?? t('recipe.toTaste')}</Text>
@@ -92,7 +94,7 @@ function RecipeDetails({ recipe, match, pantryLoading, pantryError, retryPantry,
             {match.missingIngredients.length > 0 && <View style={styles.ingredientGroup}>
               <Text style={[styles.groupTitle, { color: colors.soon }]}>{t('recipe.missing', { count: match.missingIngredients.length })}</Text>
               {match.missingIngredients.map((ingredient, index) => <IngredientRow key={`${ingredient.name}-${index}`} ingredient={ingredient} available={false} />)}
-              <Pressable accessibilityRole="button" disabled={adding} onPress={onAddMissing} style={({ pressed }) => [styles.addMissingButton, (pressed || adding) && styles.pressed]}>
+              <Pressable accessibilityRole="button" accessibilityState={{ disabled: adding || pantryLoading, busy: adding }} disabled={adding || pantryLoading} onPress={onAddMissing} style={({ pressed }) => [styles.addMissingButton, (pressed || adding || pantryLoading) && styles.pressed]}>
                 {adding ? <ActivityIndicator color={colors.background} /> : <Ionicons name="basket-outline" size={20} color={colors.background} />}
                 <Text style={styles.addMissingText}>{adding ? t('common.adding') : t('recipe.addMissing', { count: match.missingIngredients.length })}</Text>
               </Pressable>
@@ -132,28 +134,25 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const recipeId = typeof id === 'string' ? id : '';
   const load = useCallback(() => getRecipeById(recipeId), [recipeId]);
-  const { data: recipe, loading, error, reload } = useFocusedData(load);
+  const { data: recipe, loading, error, reload } = useFocusedData(load, { localChanges: false, midnight: false, remote: true });
   const { data: products, loading: pantryLoading, error: pantryError, reload: retryPantry } = useFocusedData(getProducts);
-  const match = recipe && products && !pantryLoading && !pantryError ? calculateRecipeMatch(recipe, products) : null;
+  const match = recipe && products && !pantryError ? calculateRecipeMatch(recipe, products) : null;
   const [adding, setAdding] = useState(false);
   const submitting = useRef(false);
 
   async function addMissing() {
     if (!recipe || submitting.current) return;
+    const owner = getLocalUserId();
     submitting.current = true;
     setAdding(true);
     try {
       const result = await addMissingRecipeIngredients(recipe);
       const count = result.added;
-      const message = count > 0
-        ? `${t('recipe.added', { count })}${result.skipped ? ` ${t('recipe.alreadyOnList', { count: result.skipped })}` : ''}`
-        : result.skipped > 0 ? t('recipe.allAlready') : t('recipe.everything');
-      Alert.alert(t('shopping.title'), message, [
-        { text: t('recipe.continue') },
-        { text: t('recipe.viewList'), onPress: () => router.push('/shopping-list') },
-      ]);
+      showFeedback(count > 0 ? 'polish.ingredientsAdded' : result.skipped > 0 ? 'recipe.allAlready' : 'recipe.everything', {
+        owner, values: { count, skipped: result.skipped }, action: { key: 'recipe.viewList', run: () => router.push('/shopping-list') },
+      });
     } catch {
-      Alert.alert(t('recipe.addError'), t('common.pleaseTryAgain'));
+      showFeedback('recipe.addError', { owner, tone: 'error' });
     } finally {
       submitting.current = false;
       setAdding(false);
@@ -169,7 +168,7 @@ export default function RecipeDetailScreen() {
         <View style={styles.fallback}>
           <Ionicons name="restaurant-outline" size={40} color={colors.secondary} />
           <Text accessibilityRole="header" style={styles.fallbackTitle}>{error ? t('recipe.unableLoad') : t('recipe.notFound')}</Text>
-          <Text style={styles.fallbackText}>{error ? t('recipes.connectionError') : t('recipe.gone')}</Text>
+          <Text style={styles.fallbackText}>{error ? t(error) : t('recipe.gone')}</Text>
           {error && <Pressable accessibilityRole="button" onPress={reload} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>{t('common.tryAgain')}</Text></Pressable>}
           <Pressable accessibilityRole="button" onPress={goBack} style={styles.fallbackButton}><Text style={styles.fallbackButtonText}>{t('recipe.backRecipes')}</Text></Pressable>
         </View>
@@ -205,7 +204,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   groupTitle: { fontSize: 13, fontWeight: '700', marginTop: 8, marginBottom: 2 },
   ingredientRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 10 },
   ingredientName: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 21 },
-  measure: { color: colors.secondary, fontSize: 13, lineHeight: 20, textAlign: 'right' },
+  measure: { flexShrink: 1, maxWidth: '45%', color: colors.secondary, fontSize: 13, lineHeight: 20, textAlign: 'right' },
   addMissingButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, padding: 12, marginTop: 14, borderRadius: 14, backgroundColor: colors.text },
   addMissingText: { flexShrink: 1, color: colors.background, fontSize: 13, lineHeight: 18, fontWeight: '700', textAlign: 'center' },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 4 },

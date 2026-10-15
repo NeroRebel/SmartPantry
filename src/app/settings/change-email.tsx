@@ -28,7 +28,7 @@ export default function ChangeEmailScreen() {
     finally { lock.current = false; setBusy(false); }
   }
   return <SafeAreaView style={styles.screen}><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={styles.title}>{t('account.changeEmail')}</Text>
       {!hasEmailIdentity(auth.user) ? <Text style={styles.body}>{t('account.googleManaged')}</Text> : sent ? <>
         <Text accessibilityLiveRegion="polite" style={styles.success}>{t('account.emailRequested')}</Text>

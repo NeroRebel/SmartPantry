@@ -14,13 +14,14 @@ import { avatarTranslations } from './avatar';
 import { passwordTranslations } from './password';
 import { syncTranslations } from './sync';
 import { accountTranslations } from './account';
+import { polishTranslations } from './polish';
 
 export const resources = { en: { translation: { ...en, ...scannerTranslations.en, ...authTranslations.en, ...profileTranslations.en, ...confirmationTranslations.en, ...avatarTranslations.en } }, sk: { translation: { ...sk, ...scannerTranslations.sk, ...authTranslations.sk, ...profileTranslations.sk, ...confirmationTranslations.sk, ...avatarTranslations.sk } }, ru: { translation: { ...ru, ...scannerTranslations.ru, ...authTranslations.ru, ...profileTranslations.ru, ...confirmationTranslations.ru, ...avatarTranslations.ru } },
   uk: { translation: { ...uk, ...scannerTranslations.uk, ...authTranslations.uk, ...profileTranslations.uk, ...confirmationTranslations.uk, ...avatarTranslations.uk } }, hu: { translation: { ...hu, ...scannerTranslations.hu, ...authTranslations.hu, ...profileTranslations.hu, ...confirmationTranslations.hu, ...avatarTranslations.hu } } };
 
 export const i18n = createInstance();
 for (const language of ['en', 'sk', 'ru', 'uk', 'hu'] as const) {
-  Object.assign(resources[language].translation, passwordTranslations[language], syncTranslations[language], accountTranslations[language]);
+  Object.assign(resources[language].translation, passwordTranslations[language], syncTranslations[language], accountTranslations[language], polishTranslations[language]);
 }
 void i18n.use(initReactI18next).init({
   resources, lng: 'en', fallbackLng: 'en', supportedLngs: ['en', 'sk', 'ru', 'uk', 'hu'],

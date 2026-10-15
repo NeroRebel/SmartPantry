@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { type ReactNode, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +9,8 @@ import type { AppColors } from '@/theme/theme';
 import type { Product, ProductInput } from '@/types/product';
 import { isValidISODate } from '@/utils/product-status';
 import { categoryLabel, storageLabel } from '@/i18n/format';
+import { showFeedback } from '@/services/feedback';
+import { getLocalUserId } from '@/db/local-state';
 
 const choices = {
   category: ['Dairy', 'Meat & Fish', 'Meat', 'Vegetables', 'Fruits', 'Fruit', 'Bakery', 'Drinks', 'Frozen', 'Pantry', 'Other'],
@@ -46,7 +48,7 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
-  const change = (field: keyof typeof fields, value: string) => setFields((current) => ({ ...current, [field]: value }));
+  const change = (field: keyof typeof fields, value: string) => { setError(null); setFields((current) => ({ ...current, [field]: value })); };
 
   async function save() {
     if (submitting.current) return;
@@ -59,12 +61,12 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
     else if (quantity !== null && (!/^\d+(\.\d+)?$/.test(quantityText) || !Number.isFinite(quantity) || quantity < 0)) validation = t('form.quantityInvalid');
     if (validation) {
       setError(validation);
-      Alert.alert(t('form.checkProduct'), validation);
       return;
     }
     submitting.current = true;
     setSaving(true);
     setError(null);
+    const owner = getLocalUserId();
     try {
       await onSubmit({
         name: fields.name.trim(), brand: fields.brand.trim() || null,
@@ -73,10 +75,10 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
         notes: fields.notes.trim() || null,
         barcode: initialProduct?.barcode ?? initialValues?.barcode ?? null, imageUrl: initialProduct?.imageUrl ?? initialValues?.imageUrl ?? null,
       });
+      if (owner === getLocalUserId()) showFeedback('polish.productSaved', { owner });
     } catch {
       const message = t('form.saveError');
       setError(message);
-      Alert.alert(t('form.unableSave'), message);
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -127,19 +129,19 @@ export function ProductForm({ title, submitLabel, initialProduct, initialValues,
   return (
     <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.header}>
             <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={onBack} disabled={saving} style={styles.back}>
               <Ionicons name="chevron-back" size={24} color={colors.text} />
             </Pressable>
             <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           </View>
-          {headerContent}
-          {input('name', t('form.name'), 'e.g. Milk')}
+          <View pointerEvents={saving ? 'none' : 'auto'}>{headerContent}</View>
+          {input('name', t('form.name'), t('form.nameHint'))}
           {input('brand', t('form.brand'), t('form.brandHint'))}
           {select('category')}
           <View style={styles.row}>
-            <View style={styles.half}>{input('quantity', t('form.quantity'), 'e.g. 1')}</View>
+            <View style={styles.half}>{input('quantity', t('form.quantity'), t('form.quantityHint'))}</View>
             <View style={styles.half}>{select('unit')}</View>
           </View>
           {input('expirationDate', t('form.expiration'), 'YYYY-MM-DD')}
@@ -199,13 +201,13 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   selectText: { flex: 1, color: colors.text, fontSize: 15 },
   muted: { color: colors.secondary },
   submit: { minHeight: 56, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, borderRadius: 16, padding: 16, backgroundColor: colors.text },
-  submitText: { color: colors.background, fontSize: 15, fontWeight: '700' },
+  submitText: { color: colors.background, fontSize: 15, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   error: { color: colors.expired, fontSize: 13, lineHeight: 20 },
   dimmed: { opacity: 0.6 },
-  overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#000000AA' },
+  overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.overlay },
   menu: { width: '100%', maxWidth: 500, maxHeight: '80%', alignSelf: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 20, padding: 16 },
   menuHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   menuTitle: { color: colors.text, fontSize: 18, fontWeight: '600' },
   option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, paddingVertical: 14 },
-  optionText: { color: colors.text, fontSize: 15 },
+  optionText: { color: colors.text, fontSize: 15, flexShrink: 1 },
 });

@@ -33,12 +33,12 @@ export default function RecipesScreen() {
   [mode, requestKey, debouncedQuery, category]);
   const loadPantry = useCallback(() => mode === 'pantry' ? getPantryRecipeMatches() : Promise.resolve(null), [mode]);
   const loadCategories = useCallback(() => mode === 'all' ? getRecipeCategories() : Promise.resolve([...recipeCategories]), [mode]);
-  const { data: allData, loading: allLoading, error: allError, reload: reloadAll } = useFocusedData(loadAll);
-  const { data: pantryData, loading: pantryLoading, error: pantryError, reload: reloadPantry } = useFocusedData(loadPantry);
-  const { data: remoteCategories } = useFocusedData(loadCategories);
+  const { data: allData, loading: allLoading, error: allError, reload: reloadAll } = useFocusedData(loadAll, { localChanges: false, midnight: false, remote: true });
+  const { data: pantryData, loading: pantryLoading, error: pantryError, reload: reloadPantry } = useFocusedData(loadPantry, { remote: true });
+  const { data: remoteCategories } = useFocusedData(loadCategories, { localChanges: false, midnight: false, remote: true });
   const insets = useSafeAreaInsets();
-  const searching = mode === 'all' && (query.trim() !== debouncedQuery || allLoading || allData?.key !== requestKey);
-  const pantryPending = mode === 'pantry' && (pantryLoading || !pantryData);
+  const searching = mode === 'all' && (query.trim() !== debouncedQuery || allData?.key !== requestKey);
+  const pantryPending = mode === 'pantry' && !pantryData;
   const pending = mode === 'pantry' ? pantryPending : searching;
   const error = mode === 'pantry' ? pantryError : allError;
   const pantryMatches = mode === 'pantry' && !error && !pending ? pantryData?.matches ?? [] : [];
@@ -96,7 +96,7 @@ export default function RecipesScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             {error ? (
-              <><Text accessibilityRole="header" style={styles.emptyTitle}>{t('recipes.loadError')}</Text><Text accessibilityRole="alert" style={styles.emptyText}>{t('recipes.connectionError')}</Text><Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}><Text style={styles.retryText}>{t('common.tryAgain')}</Text></Pressable></>
+              <><Text accessibilityRole="header" style={styles.emptyTitle}>{t('recipes.loadError')}</Text><Text accessibilityRole="alert" style={styles.emptyText}>{t(error)}</Text><Pressable accessibilityRole="button" onPress={reload} style={styles.retryButton}><Text style={styles.retryText}>{t('common.tryAgain')}</Text></Pressable></>
             ) : pending ? (
               <ActivityIndicator color={colors.accent} accessibilityLabel={t('recipes.loading')} />
             ) : mode === 'pantry' && pantryData?.totalProducts === 0 ? (

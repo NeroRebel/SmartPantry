@@ -4,7 +4,8 @@ import { getNotificationSettings, saveNotificationSettings } from '@/db/notifica
 import { getProductById, getProductReminderCandidates, getProducts, setProductNotificationId } from '@/db/products';
 import type { Product } from '@/types/product';
 import type { NotificationSettings } from '@/types/notification-settings';
-import { getReminderBody, getReminderDate } from '@/utils/expiration-reminder';
+import { getReminderDate } from '@/utils/expiration-reminder';
+import { i18n } from '@/i18n';
 import { getLocalUserId } from '@/db/local-state';
 import { withOwnedData } from '@/db/owned-data';
 import { isAccountBlocked } from './account-lock';
@@ -23,7 +24,7 @@ async function notificationModule() {
     });
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(channelId, {
-        name: 'Expiration reminders',
+        name: i18n.t('more.expirationReminders'),
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }
@@ -64,16 +65,16 @@ export async function scheduleExpirationNotification(product: Product, daysBefor
     if (!Notifications) return null;
     const id = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `${product.name} expires soon`,
-        body: getReminderBody(product.name, daysBefore),
+        title: i18n.t('notifications.title', { name: product.name }),
+        body: i18n.t(daysBefore === 0 ? 'notifications.today' : daysBefore === 1 ? 'notifications.tomorrow' : 'notifications.days', { name: product.name, count: daysBefore }),
         data: { productId: product.id, userId: owner, kind: 'smartpantry-expiration' },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId },
     });
     if (isAccountBlocked(owner) || owner !== getLocalUserId()) { await Notifications.cancelScheduledNotificationAsync(id); return null; }
     return id;
-  } catch (error) {
-    if (__DEV__) console.warn('[SmartPantry] Could not schedule reminder:', error);
+  } catch {
+    if (__DEV__) console.warn('[SmartPantry] Could not schedule reminder');
     return null;
   }
 }
@@ -157,7 +158,7 @@ export async function restoreProductReminders(): Promise<void> {
 }
 
 export async function setNotificationsEnabled(enabled: boolean): Promise<NotificationSettings> {
-  if (enabled && !await requestNotificationPermissions()) throw new Error('Notification permission was not granted. Enable it in your device settings.');
+  if (enabled && !await requestNotificationPermissions()) throw Object.assign(new Error('Notification permission was not granted. Enable it in your device settings.'), { code: 'notification_permission_denied' });
   const settings = { ...await getNotificationSettings(), notificationsEnabled: enabled };
   await saveNotificationSettings(settings);
   await rescheduleAllProductReminders(settings);
