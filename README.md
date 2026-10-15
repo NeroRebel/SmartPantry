@@ -184,3 +184,196 @@ Example structure:
 ## Architecture
 
 [![Architecture diagram of nerorebel/smartpantry](https://gitdiagram.com/nerorebel/smartpantry/diagram.png)](https://gitdiagram.com/nerorebel/smartpantry?utm_source=readme&utm_medium=picture)
+
+The application does not require Supabase to complete normal pantry operations. Cloud synchronization happens independently of local CRUD.
+
+Tech Stack
+Area	Technology
+Mobile	React Native
+Framework	Expo
+Language	TypeScript
+Navigation	Expo Router
+Local database	Expo SQLite
+Backend	Supabase
+Authentication	Supabase Auth
+Cloud database	Supabase Postgres
+File storage	Supabase Storage
+Barcode scanning	Expo Camera
+Notifications	Expo Notifications
+Product data	Open Food Facts
+Recipes	TheMealDB
+Localization	Expo Localization + custom i18n
+Version control	Git / GitHub
+
+Cloud Backend
+Supabase currently stores:
+auth.users
+profiles
+products
+shopping_list
+product_history
+avatars/
+
+User-owned tables are protected using Row Level Security (RLS).
+Each authenticated user can only access their own cloud records.
+The account-deletion flow is implemented through a Supabase Edge Function and removes:
+- Auth account
+- Profile
+- Products
+- Shopping List
+- Product History
+- Avatar files
+- Local account cache
+- Account-specific notifications
+Offline-First Synchronization
+The synchronization architecture intentionally keeps SQLite as the runtime database.
+SQLite
+  ↕
+Sync service
+  ↕
+Supabase Postgres
+
+Current synchronization strategy:
+- Existing local data is preserved during migrations
+- Local and remote records are merged by (user_id, id)
+- updated_at is used for conflict resolution
+- Current conflict strategy: Last Write Wins
+- Deleted records use deleted_at tombstones
+- Failed synchronization does not block local usage
+Download
+Android
+The latest Android APK is available from the repository's GitHub Releases page.
+Recommended release filename:
+SmartPantry-v1.0.0.apk
+
+Android may ask you to allow installation from unknown sources when installing an APK outside Google Play.
+
+Development
+Requirements
+- Node.js 22.13+
+- npm
+- Java 17
+- Android SDK 36
+- Android NDK 27.1.12297006
+Clone the repository:
+git clone https://github.com/NeroRebel/SmartPantry.git
+cd SmartPantry
+
+Install dependencies:
+npm ci
+
+Create a local .env file based on:
+.env.example
+
+Required public variables:
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+
+Never place server-side or administrative Supabase secrets in the mobile application.
+Running the Development Build
+SmartPantry uses native Expo modules and should be tested using a development build, not Expo Go.
+Build Android:
+npx expo run:android
+
+Start Metro for the development client:
+npx expo start --dev-client
+
+Android Release Build
+From:
+android/
+
+run:
+.\gradlew assembleRelease
+
+Release APK output:
+android/app/build/outputs/apk/release/app-release.apk
+
+Release signing requires the production/upload keystore configuration described in the release documentation.
+Project Structure
+SmartPantry/
+├── assets/
+│   └── images/
+├── docs/
+├── plugins/
+├── scripts/
+├── src/
+│   ├── api/
+│   ├── app/
+│   ├── auth/
+│   ├── components/
+│   ├── constants/
+│   ├── data/
+│   ├── db/
+│   ├── hooks/
+│   ├── i18n/
+│   ├── lib/
+│   ├── services/
+│   ├── sync/
+│   ├── theme/
+│   ├── types/
+│   └── utils/
+├── supabase/
+│   └── functions/
+├── tests/
+├── app.json
+├── package.json
+└── project.md
+
+Documentation
+Additional technical documentation is available in:
+- [`docs/auth-setup.md`](docs/auth-setup.md) — authentication, OAuth and account management
+- [`docs/cloud-sync.md`](docs/cloud-sync.md) — offline-first synchronization architecture
+- [`docs/data-handling.md`](docs/data-handling.md) — application data handling
+- [`docs/polish-qa.md`](docs/polish-qa.md) — UI/UX QA and polish pass
+- [`docs/release-readiness.md`](docs/release-readiness.md) — Android release preparation and verification
+Security
+SmartPantry follows several security rules:
+- Passwords are handled by Supabase Auth
+- Passwords are never stored by SmartPantry
+- Mobile builds contain only the Supabase publishable key
+- Supabase service-role credentials are server-side only
+- Row Level Security protects cloud data
+- Avatar storage uses user-specific access policies
+- Account deletion uses a server-side Edge Function
+- .env, keystores and release artifacts are excluded from Git
+External Services
+Open Food Facts
+Used for barcode-based and name-based product lookup.
+Product coverage depends on the Open Food Facts database and may vary by region.
+TheMealDB
+Used for recipe discovery, search, categories and recipe details.
+Recipe content is provided by the external API and is not translated by SmartPantry.
+Supabase
+Used for:
+- Authentication
+- Postgres cloud storage
+- Avatar storage
+- Edge Functions
+- Cloud synchronization
+
+Known Limitations
+- The first synchronization implementation uses whole-row Last Write Wins conflict resolution.
+- Clock skew between devices may influence conflict resolution.
+- Simultaneous offline lifecycle actions on multiple devices may produce duplicate history events.
+- Open Food Facts does not contain every commercial product.
+- Recipe matching currently uses lightweight ingredient normalization rather than advanced NLP.
+- iOS has not yet received the same level of physical-device testing as Android.
+
+Future Improvements
+Possible future development includes:
+- AI-generated recipes
+- Improved ingredient matching
+- Nutrition information
+- Favorite recipes
+- Richer analytics
+- Onboarding
+- Additional synchronization conflict handling
+- iOS release testing
+License
+This project is licensed under the MIT License.
+See LICENSE for details.
+<p align="center">
+  <strong>SmartPantry</strong><br />
+  Keep track. Waste less. Cook smarter.
+</p>
+```
