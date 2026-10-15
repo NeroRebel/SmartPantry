@@ -15,6 +15,16 @@ and keep your pantry synchronized across devices.
 
 [![Download APK](https://img.shields.io/badge/Download_APK-FF8A00?style=for-the-badge&logo=android&logoColor=white)](https://github.com/NeroRebel/SmartPantry/releases/latest/download/SmartPantry.apk)
 
+<br/>
+
+## 🎬 SmartPantry in Action
+
+See the complete SmartPantry workflow in action — pantry tracking,
+barcode scanning, recipes, shopping lists and statistics.
+
+https://github.com/user-attachments/assets/0ae3dd25-a343-4550-8092-908a123bad0f
+
+
 </div>
 
 ![SmartPantry: Offline-first pantry manager](docs/images/smartpantry-hero.png)
