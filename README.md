@@ -28,6 +28,16 @@ barcode scanning, recipes, shopping lists and statistics.
 
 https://github.com/user-attachments/assets/0ae3dd25-a343-4550-8092-908a123bad0f
 
+## 📚 Project Documentation
+
+| Document | Description |
+| --- | --- |
+| [📋 Specification](SPEC.md) | Requirements, users, functional scope, constraints and acceptance criteria |
+| [🏗️ Design Document](DESIGN.md) | Architecture, data model, synchronization, APIs and technical decisions |
+| [📱 Project Overview](project.md) | Initiative, epics, user stories, scope and technology |
+| [🧪 Release Readiness](docs/release-readiness.md) | Release checks and validation |
+| [🤝 Contributing](CONTRIBUTING.md) | Contribution and development guidelines |
+| [🔒 Security](SECURITY.md) | Security policy and vulnerability reporting |
 
 </div>
 
