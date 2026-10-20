@@ -38,14 +38,20 @@ https://github.com/user-attachments/assets/0ae3dd25-a343-4550-8092-908a123bad0f
 
 ## 📚 Project Documentation
 
+<p align="center">
+  <b>Requirements • Architecture • Implementation • QA • Release</b>
+</p>
+
 | Document | Description |
 | --- | --- |
-| [📋 Specification](SPEC.md) | Requirements, users, functional scope, constraints and acceptance criteria |
-| [🏗️ Design Document](DESIGN.md) | Architecture, data model, synchronization, APIs and technical decisions |
-| [📱 Project Overview](project.md) | Initiative, epics, user stories, scope and technology |
-| [🧪 Release Readiness](docs/release-readiness.md) | Release checks and validation |
-| [🤝 Contributing](CONTRIBUTING.md) | Contribution and development guidelines |
-| [🔒 Security](SECURITY.md) | Security policy and vulnerability reporting |
+| 📋 [SPEC.md](SPEC.md) | Requirements, users, scope, constraints and acceptance criteria |
+| 🏗️ [DESIGN.md](DESIGN.md) | Architecture, data model, APIs, synchronization and technical decisions |
+| 🧭 [project.md](project.md) | Initiative, epics, user stories, MVP and project scope |
+| 🔐 [auth-setup.md](docs/auth-setup.md) | Authentication, OAuth and account management |
+| ☁️ [cloud-sync.md](docs/cloud-sync.md) | Offline-first synchronization architecture |
+| 🗃️ [data-handling.md](docs/data-handling.md) | Application data handling and persistence |
+| ✨ [polish-qa.md](docs/polish-qa.md) | UI/UX audit, accessibility and QA |
+| 🚀 [release-readiness.md](docs/release-readiness.md) | Android release preparation and validation |
 
 </div>
 
@@ -162,20 +168,6 @@ SmartPantry/
 ├── package.json
 └── project.md
 ```
-
----
-
-# Documentation
-
-| Document | Description |
-|---|---|
-| [`auth-setup.md`](docs/auth-setup.md) | Authentication, OAuth and account management |
-| [`cloud-sync.md`](docs/cloud-sync.md) | Offline-first synchronization architecture |
-| [`data-handling.md`](docs/data-handling.md) | Application data handling |
-| [`polish-qa.md`](docs/polish-qa.md) | UI/UX audit and QA |
-| [`release-readiness.md`](docs/release-readiness.md) | Android release preparation |
-
----
 
 # Security
 
