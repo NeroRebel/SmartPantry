@@ -1,0 +1,27 @@
+---
+name: Feature request
+about: Suggest an improvement for SmartPantry
+title: "[Feature] "
+labels: enhancement
+assignees: ""
+---
+
+## Problem
+
+What problem or limitation would this feature address?
+
+## Proposed feature
+
+Describe the feature and how it should work.
+
+## User value
+
+How would this improve SmartPantry for users?
+
+## Possible solution
+
+If you have an implementation idea, describe it here.
+
+## Additional context
+
+Add screenshots, mockups, references or examples if useful.
